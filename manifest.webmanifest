@@ -1,7 +1,7 @@
 {
   "name": "PCR PCN Calculator",
   "short_name": "PCRPCN",
-  "start_url": "/index.html",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3367D6",
