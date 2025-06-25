@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PCR/PCN Calculator</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+</head>
+<body>
+  <h1>PCR / PCN Calculator</h1>
+  <form id="calcForm">
+    <label>PCR/PCN:
+      <select id="typeSelect">
+        <option value="PCR">PCR</option>
+        <option value="PCN">PCN</option>
+      </select>
+    </label><br><br>
+
+    <label>Aircraft Type:
+      <select id="inputD4">
+        <option>757-200</option>
+        <option>767-300ER</option>
+        <option>777F</option>
+      </select>
+    </label><br><br>
+
+    <label>Pavement:
+      <select id="inputG4">
+        <option>Rigid</option>
+        <option>Flexible</option>
+      </select>
+    </label><br><br>
+
+    <label>Subgrade:
+      <select id="inputI4">
+        <option>A-High</option>
+        <option>B-Medium</option>
+        <option>C-Low</option>
+        <option>D-UltraLow</option>
+      </select>
+    </label><br><br>
+
+    <label>Actual Weight (kg): <input type="number" id="inputD7" /></label><br><br>
+    <label>PCR/PCN: <input type="number" id="inputI7" /></label><br><br>
+
+    <button type="submit">Calculate</button>
+  </form>
+
+  <p>Code (G47): <span id="codeOut"></span></p>
+  <p>Min PCR/PCN = <span id="resultD8"></span></p>
+  <p>Max Weight Limit (kg) = <span id="resultI8"></span></p>
+
+  <script src="app.js"></script>
+</body>
+</html>
