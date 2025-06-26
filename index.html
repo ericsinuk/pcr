@@ -5,57 +5,89 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>PCR/PCN Calculator</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js');
-      });
-    }
-  </script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table.sheet { border-collapse: collapse; }
+    table.sheet td, table.sheet th { border: 1px solid #c0c0c0; padding: 6px 8px; min-width: 70px; }
+    table.sheet th { background: #f2f2f2; }
+    label { font-weight: bold; }
+    .result { font-weight: bold; color: #333; }
+  </style>
 </head>
 <body>
   <h1>PCR / PCN Calculator</h1>
+
   <form id="calcForm">
-    <label>PCR/PCN:
-      <select id="typeSelect">
-        <option value="PCR">PCR</option>
-        <option value="PCN">PCN</option>
-      </select>
-    </label><br><br>
+    <table class="sheet">
+      <!-- Row 4 labels -->
+      <tr>
+        <td colspan="3"></td>
+        <td><label for="inputD4">Aircraft Type</label></td>
+        <td colspan="2"></td>
+        <td><label for="inputG4">Pavement</label></td>
+        <td colspan="2"></td>
+        <td><label for="inputI4">Subgrade</label></td>
+      </tr>
 
-    <label>Aircraft Type:
-      <select id="inputD4">
-        <option>757-200</option>
-        <option>767-300ER</option>
-        <option>777F</option>
-      </select>
-    </label><br><br>
+      <!-- Row 4 dropdowns -->
+      <tr>
+        <td colspan="3"></td>
+        <td>
+          <select id="inputD4">
+            <option>757-200</option>
+            <option>767-300ER</option>
+            <option>777F</option>
+          </select>
+        </td>
+        <td colspan="2"></td>
+        <td>
+          <select id="inputG4">
+            <option>Rigid</option>
+            <option>Flexible</option>
+          </select>
+        </td>
+        <td colspan="2"></td>
+        <td>
+          <select id="inputI4">
+            <option>A-High</option>
+            <option>B-Medium</option>
+            <option>C-Low</option>
+            <option>D-UltraLow</option>
+          </select>
+        </td>
+      </tr>
 
-    <label>Pavement:
-      <select id="inputG4">
-        <option>Rigid</option>
-        <option>Flexible</option>
-      </select>
-    </label><br><br>
+      <!-- Row 7 inputs -->
+      <tr>
+        <td colspan="3"></td>
+        <td colspan="2"><label for="inputD7">Actual Weight (kg):</label></td>
+        <td colspan="2"><input type="number" id="inputD7" style="width:120px;"></td>
+        <td colspan="2"><label for="inputI7">PCR/PCN:</label></td>
+        <td><input type="number" id="inputI7" style="width:120px;"></td>
+      </tr>
 
-    <label>Subgrade:
-      <select id="inputI4">
-        <option>A-High</option>
-        <option>B-Medium</option>
-        <option>C-Low</option>
-        <option>D-UltraLow</option>
-      </select>
-    </label><br><br>
+      <!-- Row 8 results -->
+      <tr>
+        <td colspan="3"></td>
+        <td colspan="3" class="result">Min PCR/PCN = <span id="resultD8"></span></td>
+        <td colspan="4" class="result">Max Weight Limit (kg) = <span id="resultI8"></span></td>
+      </tr>
+    </table>
 
-    <label>Actual Weight (kg): <input type="number" id="inputD7" /></label><br><br>
-    <label>PCR/PCN: <input type="number" id="inputI7" /></label><br><br>
+    <br>
+    <!-- Code display -->
+    <p>Code (G47): <span id="codeOut" style="font-weight:bold;"></span></p>
 
+    <!-- Type selector -->
+    <label for="typeSelect">Calculation Type:</label>
+    <select id="typeSelect">
+      <option value="PCR">PCR</option>
+      <option value="PCN">PCN</option>
+    </select>
+
+    <br><br>
     <button type="submit">Calculate</button>
   </form>
-
-  <p>Code (G47): <span id="codeOut"></span></p>
-  <p>Min PCR/PCN = <span id="resultD8"></span></p>
-  <p>Max Weight Limit (kg) = <span id="resultI8"></span></p>
 
   <script src="app.js"></script>
 </body>
