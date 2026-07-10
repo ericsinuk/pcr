@@ -1,4 +1,4 @@
-const CACHE = "pcr-pcn-v2.3";
+const CACHE = "pcr-pcn-v2.5";
 const ASSETS = ["./", "./index.html", "./app.js", "./airfields.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
@@ -16,7 +16,9 @@ self.addEventListener("activate", e => {
 
 self.addEventListener("fetch", e => {
   e.respondWith(
-    fetch(e.request)
+    // cache:"no-cache" forces revalidation with the server (cheap 304s),
+    // so a deploy is picked up on next load instead of heuristic HTTP caching
+    fetch(e.request, { cache: "no-cache" })
       .then(res => {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, copy));

@@ -36,6 +36,8 @@
     .topbar-brand{display:flex;align-items:center;gap:10px;min-width:0}
     .topbar-title{font-size:15px;font-weight:800;color:var(--dhl-red);letter-spacing:-.01em;white-space:nowrap}
     .topbar-logo{width:34px;height:34px;border-radius:8px;display:block}
+    .topbar-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0}
+    .topbar-ver{font-size:9px;color:rgba(0,0,0,0.5);font-weight:500;white-space:nowrap}
     .topbar-sub{font-size:11px;color:rgba(0,0,0,0.55);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .chip{
       display:inline-flex;align-items:center;gap:5px;
@@ -171,7 +173,10 @@
         <div class="topbar-sub">Pavement strength &amp; weight limits</div>
       </div>
     </div>
-    <span class="chip" id="codeChip">—</span>
+    <div class="topbar-right">
+      <span class="chip" id="codeChip">—</span>
+      <span class="topbar-ver" id="appVer"></span>
+    </div>
   </div>
 
   <div class="page active" id="page-calc">

@@ -1,3 +1,7 @@
+const APP_VERSION = "2.5";
+const APP_VERSION_DATE = "2026-07-10";
+// NOTE: bump APP_VERSION on every update; keep sw.js CACHE name in sync ("pcr-pcn-v<ver>").
+
 /* ================================================================
    PCR / PCN Calculator — data
    ================================================================
@@ -198,6 +202,7 @@ function recalc() {
 }
 
 recalc();
+$("appVer").textContent = "Ver " + APP_VERSION + " \u00b7 " + APP_VERSION_DATE;
 
 /* ================================================================
    PCN / PCR Quick Check per airfield (desktop only)
