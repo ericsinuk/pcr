@@ -102,6 +102,8 @@
     .verdict.bad{color:var(--danger);background:var(--red-bg);padding:9px 12px;border-radius:var(--radius)}
 
     .foot-note{font-size:10px;color:var(--text3);text-align:center;line-height:1.5}
+    .xlsx-dl{color:var(--info);text-decoration:none;font-weight:500}
+    .xlsx-dl:hover{text-decoration:underline}
 
     @media (max-width:480px){
       .field-grid{grid-template-columns:1fr}
@@ -254,7 +256,8 @@
 
     <div class="foot-note">
       Linear interpolation between each aircraft's minimum weight and max taxi weight.<br>
-      Results are advisory — verify against the current AIP / airport data.
+      Results are advisory — verify against the current AIP / airport data.<br>
+      <a class="xlsx-dl" href="PCN_PCR_Settings.xlsx" download>Download settings workbook (Excel)</a>
     </div>
 
   </div>
@@ -313,7 +316,8 @@
 
     <div class="foot-note">
       Max weight per runway is interpolated from the published PCN/PCR using the selected tail's minimum weight.<br>
-      Δ = max allowable weight − selected reference weight (MTW/MLW). Results are advisory — verify against the current AIP.
+      Δ = max allowable weight − selected reference weight (MTW/MLW). Results are advisory — verify against the current AIP.<br>
+      <a class="xlsx-dl" href="PCN_PCR_Settings.xlsx" download>Download settings workbook (Excel)</a>
     </div>
 
   </div>

@@ -1,5 +1,9 @@
 # PCN PCR Calculator — Changelog
 
+## Ver 2.6 — 2026-07-10
+- Master settings workbook (PCN_PCR_Settings.xlsx) downloadable from the app footer
+- Workbook is the standard way to update fleet / chart data / ref weights / airfields
+
 ## Ver 2.5 — 2026-07-10
 - Version number now displayed in the top panel; formal version control starts here
 - Official ready-made DHL "PCN PCR Calculator" logo (topbar + PWA/home-screen icons)
