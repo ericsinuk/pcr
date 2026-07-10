@@ -1,4 +1,4 @@
-const APP_VERSION = "2.8";
+const APP_VERSION = "2.9";
 const APP_VERSION_DATE = "2026-07-10";
 // NOTE: bump APP_VERSION on every update; keep sw.js CACHE name in sync ("pcr-pcn-v<ver>").
 
@@ -91,11 +91,12 @@ const fmt1 = n => n.toLocaleString("en-GB", { minimumFractionDigits: 1, maximumF
   });
 })();
 
-// Segmented control (PCR / PCN)
+// Segmented control (PCR / PCN) — scope to [data-val] so the MTW/MLW
+// buttons on the Check tab (same .seg-btn class) don't clobber calcSystem
 let calcSystem = "PCR";
-document.querySelectorAll(".seg-btn").forEach(btn => {
+document.querySelectorAll(".seg-btn[data-val]").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".seg-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".seg-btn[data-val]").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     calcSystem = btn.dataset.val;
     recalc();

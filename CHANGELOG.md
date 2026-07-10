@@ -1,5 +1,10 @@
 # PCN PCR Calculator — Changelog
 
+## Ver 2.9 — 2026-07-10
+- Fix: switching MTW/MLW on the Check tab crashed the calculator state
+  ("type[calcSystem] is undefined") — the PCR/PCN toggle handler was bound to
+  all segmented buttons instead of only its own
+
 ## Ver 2.8 — 2026-07-10
 - Airfield search: custom styled suggestion dropdown (replaces native datalist,
   which rendered illegibly under some browser/OS themes); arrow-key + Enter
