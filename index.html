@@ -3,92 +3,319 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>PCR/PCN Calculator</title>
+  <title>PCR / PCN Calculator</title>
   <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#FFCC00" />
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    table.sheet { border-collapse: collapse; }
-    table.sheet td, table.sheet th { border: 1px solid #c0c0c0; padding: 6px 8px; min-width: 70px; }
-    table.sheet th { background: #f2f2f2; }
-    label { font-weight: bold; }
-    .result { font-weight: bold; color: #333; }
+    :root{
+      --dhl:#FFCC00; --dhl-dark:#E6B800; --dhl-red:#D40511;
+      --bg:#ffffff; --bg2:#f7f7f5; --bg3:#efeeea;
+      --text:#1a1a18; --text2:#6b6b68; --text3:#9e9e9b;
+      --border:rgba(0,0,0,0.1); --border2:rgba(0,0,0,0.2);
+      --radius:6px; --radius-lg:10px;
+      --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+      --blue-bg:#E6F1FB; --blue-txt:#0C447C;
+      --amber-bg:#FAEEDA; --amber-txt:#633806;
+      --green-bg:#EAF3DE; --green-txt:#27500A;
+      --red-bg:#FCEBEB; --red-txt:#791F1F;
+      --gray-bg:#F1EFE8; --gray-txt:#444441;
+      --info:#185FA5; --success:#3B6D11; --warn:#854F0B; --danger:#A32D2D;
+    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{min-height:100%;font-family:var(--font);background:var(--bg3);color:var(--text);font-size:13px}
+
+    /* ── Topbar ── */
+    .topbar{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:0 16px;background:var(--dhl);
+      border-bottom:2px solid var(--dhl-dark);height:52px;gap:12px;
+      position:sticky;top:0;z-index:10;
+    }
+    .topbar-brand{display:flex;align-items:center;gap:10px;min-width:0}
+    .topbar-title{font-size:15px;font-weight:700;color:#1a1a18;letter-spacing:-.01em;white-space:nowrap}
+    .topbar-sub{font-size:11px;color:rgba(0,0,0,0.55);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .chip{
+      display:inline-flex;align-items:center;gap:5px;
+      font-size:11px;padding:3px 10px;border-radius:20px;font-weight:500;white-space:nowrap;
+      background:rgba(0,0,0,0.12);color:#1a1a18;
+    }
+
+    /* ── Layout ── */
+    .wrap{max-width:640px;margin:0 auto;padding:16px 14px 40px;display:flex;flex-direction:column;gap:12px}
+
+    .card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+    .card-head{padding:9px 14px;border-bottom:0.5px solid var(--border);background:var(--bg2);
+      font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+    .card-body{padding:14px;display:flex;flex-direction:column;gap:12px}
+
+    /* ── Fields ── */
+    .field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .field{display:flex;flex-direction:column;gap:4px}
+    .field.full{grid-column:1 / -1}
+    .field label{font-size:11px;color:var(--text2);font-weight:500}
+    .field input,.field select{
+      font-size:14px;padding:8px 10px;
+      border:0.5px solid var(--border2);border-radius:var(--radius);
+      background:var(--bg);color:var(--text);outline:none;font-family:var(--font);width:100%;
+    }
+    .field input:focus,.field select:focus{border-color:var(--info);box-shadow:0 0 0 2px rgba(24,95,165,0.1)}
+
+    /* ── Segmented control ── */
+    .seg{display:flex;background:var(--bg3);border-radius:var(--radius);padding:2px;gap:2px}
+    .seg-btn{
+      flex:1;border:none;background:none;cursor:pointer;font-family:var(--font);
+      font-size:12px;font-weight:600;color:var(--text2);padding:7px 0;border-radius:5px;
+    }
+    .seg-btn.active{background:var(--bg);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,0.08)}
+
+    /* ── Aircraft summary ── */
+    .ac-summary{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:11px;color:var(--text2)}
+    .ac-summary b{color:var(--text);font-weight:600}
+    .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:var(--radius);white-space:nowrap;font-weight:500}
+    .cat-B757{background:var(--amber-bg);color:var(--amber-txt)}
+    .cat-B767{background:var(--green-bg);color:var(--green-txt)}
+    .cat-B777{background:var(--blue-bg);color:var(--blue-txt)}
+    .cat-MISC{background:var(--gray-bg);color:var(--gray-txt)}
+
+    /* ── Results ── */
+    .kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .kpi-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius);padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+    .kpi-card .kpi-label{font-size:11px;color:var(--text2)}
+    .kpi-card .kpi-val{font-size:26px;font-weight:600;line-height:1.1;word-break:break-word}
+    .kpi-card .kpi-sub{font-size:10px;color:var(--text3)}
+    .kpi-card.kc-blue{background:var(--blue-bg);border-color:transparent}
+    .kpi-card.kc-blue .kpi-val{color:var(--blue-txt)}
+    .kpi-card.kc-amber{background:var(--amber-bg);border-color:transparent}
+    .kpi-card.kc-amber .kpi-val{color:var(--amber-txt)}
+    .kpi-card.kc-green{background:var(--green-bg);border-color:transparent}
+    .kpi-card.kc-green .kpi-val{color:var(--green-txt)}
+    .kpi-card.kc-red{background:var(--red-bg);border-color:transparent}
+    .kpi-card.kc-red .kpi-val{color:var(--red-txt)}
+
+    .verdict{font-size:13px;font-weight:600;text-align:center;padding:0}
+    .verdict.ok{color:var(--success);background:var(--green-bg);padding:9px 12px;border-radius:var(--radius)}
+    .verdict.bad{color:var(--danger);background:var(--red-bg);padding:9px 12px;border-radius:var(--radius)}
+
+    .foot-note{font-size:10px;color:var(--text3);text-align:center;line-height:1.5}
+
+    @media (max-width:480px){
+      .field-grid{grid-template-columns:1fr}
+      .kpi-row{grid-template-columns:1fr}
+      .topbar-sub{display:none}
+    }
+
+    /* ── Pages & bottom nav (DRM style) ── */
+    .page{display:none}
+    .page.active{display:block}
+    .bottom-nav{
+      display:none;align-items:stretch;background:var(--bg);
+      border-top:0.5px solid var(--border);height:46px;
+      position:fixed;bottom:0;left:0;right:0;z-index:10;
+    }
+    .nav-tab{
+      flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:2px;cursor:pointer;border:none;background:none;color:var(--text3);
+      font-size:9px;font-family:var(--font);font-weight:500;text-transform:uppercase;
+      letter-spacing:.04em;border-top:2px solid transparent;transition:color .15s;padding:4px 0;
+    }
+    .nav-tab:hover{color:var(--text2)}
+    .nav-tab.active{color:#1a1a18;border-top-color:var(--dhl-dark);font-weight:700}
+    /* Desktop only (fine pointer + wide screen): show nav, allow the Check tab */
+    @media (min-width:1000px) and (hover:hover) and (pointer:fine){
+      .bottom-nav{display:flex}
+      body{padding-bottom:46px}
+    }
+
+    /* ── Check page ── */
+    .wrap-wide{max-width:1100px;margin:0 auto;padding:16px 14px 40px;display:flex;flex-direction:column;gap:12px}
+    .chk-controls{display:grid;grid-template-columns:1.2fr 0.8fr 1fr 1fr 1fr;gap:10px;align-items:end}
+    .chk-controls .field label b{color:var(--text)}
+    .af-head{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:12px;color:var(--text2)}
+    .af-head .af-name{font-size:15px;font-weight:700;color:var(--text)}
+    table.rwy{width:100%;border-collapse:collapse;font-size:12px}
+    .rwy th{text-align:left;padding:7px 12px;font-size:11px;font-weight:500;color:var(--text2);background:var(--bg2);border-bottom:0.5px solid var(--border);white-space:nowrap}
+    .rwy td{padding:8px 12px;border-bottom:0.5px solid var(--border);white-space:nowrap}
+    .rwy tr:last-child td{border-bottom:none}
+    .rwy tr:hover td{background:var(--bg2)}
+    .rwy .num{text-align:right;font-variant-numeric:tabular-nums}
+    .delta-neg{color:var(--danger);font-weight:600}
+    .delta-pos{color:var(--success)}
+    .rwy-scroll{overflow-x:auto}
+    .chk-empty{padding:40px;text-align:center;color:var(--text3);font-size:12px}
   </style>
 </head>
 <body>
-  <h1>PCR / PCN Calculator</h1>
+  <noscript>
+    <div style="background:#FCEBEB;color:#791F1F;padding:12px 16px;font-size:13px;font-weight:600;text-align:center">
+      JavaScript is disabled — this app cannot run. If you are viewing this as a file preview
+      (mail/WhatsApp/Files), download the file and open it in a real browser (Chrome/Safari).
+    </div>
+  </noscript>
+  <script>
+    // Surface any startup error visibly — testers can screenshot this instead of a dead page.
+    window.onerror = function (msg, src, line) {
+      var el = document.createElement("div");
+      el.style.cssText = "background:#FCEBEB;color:#791F1F;padding:10px 16px;font-size:12px;text-align:center";
+      el.textContent = "App error: " + msg + " (line " + line + ")";
+      document.body.insertBefore(el, document.body.firstChild);
+    };
+  </script>
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div>
+        <div class="topbar-title">PCR / PCN Calculator</div>
+        <div class="topbar-sub">Pavement strength &amp; weight limits</div>
+      </div>
+    </div>
+    <span class="chip" id="codeChip">—</span>
+  </div>
 
-  <form id="calcForm">
-    <table class="sheet">
-      <!-- Row 4 labels -->
-      <tr>
-        <td colspan="3"></td>
-        <td><label for="inputD4">Aircraft Type</label></td>
-        <td colspan="2"></td>
-        <td><label for="inputG4">Pavement</label></td>
-        <td colspan="2"></td>
-        <td><label for="inputI4">Subgrade</label></td>
-      </tr>
+  <div class="page active" id="page-calc">
+  <div class="wrap">
 
-      <!-- Row 4 dropdowns -->
-      <tr>
-        <td colspan="3"></td>
-        <td>
-          <select id="inputD4">
-            <option>757-200</option>
-            <option>767-300ER</option>
-            <option>777F</option>
-          </select>
-        </td>
-        <td colspan="2"></td>
-        <td>
-          <select id="inputG4">
-            <option>Rigid</option>
-            <option>Flexible</option>
-          </select>
-        </td>
-        <td colspan="2"></td>
-        <td>
-          <select id="inputI4">
-            <option>A-High</option>
-            <option>B-Medium</option>
-            <option>C-Low</option>
-            <option>D-UltraLow</option>
-          </select>
-        </td>
-      </tr>
+    <div class="card">
+      <div class="card-head">Aircraft &amp; Pavement</div>
+      <div class="card-body">
+        <div class="field-grid">
+          <div class="field">
+            <label for="regSelect">Aircraft registration</label>
+            <select id="regSelect"></select>
+          </div>
+          <div class="field">
+            <label>System</label>
+            <div class="seg">
+              <button type="button" class="seg-btn active" data-val="PCR">PCR</button>
+              <button type="button" class="seg-btn" data-val="PCN">PCN</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="pavementSelect">Pavement</label>
+            <select id="pavementSelect">
+              <option value="R">Rigid</option>
+              <option value="F">Flexible</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="subgradeSelect">Subgrade</label>
+            <select id="subgradeSelect">
+              <option value="A">A — High</option>
+              <option value="B">B — Medium</option>
+              <option value="C">C — Low</option>
+              <option value="D">D — Ultra&nbsp;Low</option>
+            </select>
+          </div>
+        </div>
+        <div class="ac-summary">
+          <span class="badge cat-MISC" id="acType">—</span>
+          <span>Min weight <b id="acMinWt">—</b></span>
+          <span>Max taxi <b id="acMaxTaxi">—</b></span>
+          <span>ACR range <b id="acrRange">—</b></span>
+        </div>
+      </div>
+    </div>
 
-      <!-- Row 7 inputs -->
-      <tr>
-        <td colspan="3"></td>
-        <td colspan="2"><label for="inputD7">Actual Weight (kg):</label></td>
-        <td colspan="2"><input type="number" id="inputD7" style="width:120px;"></td>
-        <td colspan="2"><label for="inputI7">PCR/PCN:</label></td>
-        <td><input type="number" id="inputI7" style="width:120px;"></td>
-      </tr>
+    <div class="card">
+      <div class="card-head">Calculate</div>
+      <div class="card-body">
+        <div class="field-grid">
+          <div class="field">
+            <label for="weightInput" id="wtLabel">Actual weight (kg)</label>
+            <input type="number" id="weightInput" inputmode="decimal" placeholder="e.g. 100000">
+          </div>
+          <div class="field">
+            <label for="pcnInput" id="pcnLabel">Published PCR of pavement</label>
+            <input type="number" id="pcnInput" inputmode="decimal" placeholder="e.g. 45">
+          </div>
+        </div>
+        <div class="kpi-row">
+          <div class="kpi-card" id="cardMin">
+            <div class="kpi-label" id="resMinLabel">Minimum PCR required</div>
+            <div class="kpi-val" id="resMin">—</div>
+            <div class="kpi-sub" id="resMinNote">Enter the actual weight</div>
+          </div>
+          <div class="kpi-card" id="cardWt">
+            <div class="kpi-label">Max weight limit</div>
+            <div class="kpi-val" id="resWt">—</div>
+            <div class="kpi-sub" id="resWtNote">Enter the published value</div>
+          </div>
+        </div>
+        <div class="verdict" id="verdict"></div>
+      </div>
+    </div>
 
-      <!-- Row 8 results -->
-      <tr>
-        <td colspan="3"></td>
-        <td colspan="3" class="result">Min PCR/PCN = <span id="resultD8"></span></td>
-        <td colspan="4" class="result">Max Weight Limit (kg) = <span id="resultI8"></span></td>
-      </tr>
-    </table>
+    <div class="foot-note">
+      Linear interpolation between each aircraft's minimum weight and max taxi weight.<br>
+      Results are advisory — verify against the current AIP / airport data.
+    </div>
 
-    <br>
-    <!-- Code display -->
-    <p>Code (G47): <span id="codeOut" style="font-weight:bold;"></span></p>
+  </div>
+  </div><!-- /page-calc -->
 
-    <!-- Type selector -->
-    <label for="typeSelect">Calculation Type:</label>
-    <select id="typeSelect">
-      <option value="PCR">PCR</option>
-      <option value="PCN">PCN</option>
-    </select>
+  <div class="page" id="page-chk">
+  <div class="wrap-wide">
 
-    <br><br>
-    <button type="submit">Calculate</button>
-  </form>
+    <div class="card">
+      <div class="card-head">PCN / PCR Quick Check per Airfield</div>
+      <div class="card-body">
+        <div class="chk-controls">
+          <div class="field">
+            <label for="icaoInput">ICAO / IATA / name</label>
+            <input type="text" id="icaoInput" list="afList" placeholder="e.g. EYVI" autocomplete="off" spellcheck="false" style="text-transform:uppercase">
+            <datalist id="afList"></datalist>
+          </div>
+          <div class="field">
+            <label>Reference weight</label>
+            <div class="seg" id="refSeg">
+              <button type="button" class="seg-btn active" data-ref="MTW">MTW</button>
+              <button type="button" class="seg-btn" data-ref="MLW">MLW</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="chkReg757">B757 aircraft</label>
+            <select id="chkReg757"></select>
+          </div>
+          <div class="field">
+            <label for="chkReg767">B767 aircraft</label>
+            <select id="chkReg767"></select>
+          </div>
+          <div class="field">
+            <label for="chkReg777">B777 aircraft</label>
+            <select id="chkReg777"></select>
+          </div>
+        </div>
+      </div>
+    </div>
 
+    <div class="card" id="afCard" style="display:none">
+      <div class="card-body">
+        <div class="af-head" id="afHead"></div>
+      </div>
+      <div class="rwy-scroll">
+        <table class="rwy" id="rwyTable"></table>
+      </div>
+      <div class="card-body" id="chkVerdictWrap" style="border-top:0.5px solid var(--border)">
+        <div class="verdict" id="chkVerdict"></div>
+      </div>
+    </div>
+
+    <div class="card" id="afEmpty">
+      <div class="chk-empty">Enter an ICAO code above to check runway pavement strength for the selected aircraft.</div>
+    </div>
+
+    <div class="foot-note">
+      Max weight per runway is interpolated from the published PCN/PCR using the selected tail's minimum weight.<br>
+      Δ = max allowable weight − selected reference weight (MTW/MLW). Results are advisory — verify against the current AIP.
+    </div>
+
+  </div>
+  </div><!-- /page-chk -->
+
+  <div class="bottom-nav" id="bottomNav">
+    <button class="nav-tab active" data-page="page-calc">Calculator</button>
+    <button class="nav-tab" data-page="page-chk">PCN/PCR Check</button>
+  </div>
+
+  <script src="airfields.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
