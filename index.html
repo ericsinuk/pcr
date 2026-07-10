@@ -161,6 +161,9 @@
   <script>
     // Surface any startup error visibly — testers can screenshot this instead of a dead page.
     window.onerror = function (msg, src, line) {
+      // Ignore masked cross-origin errors ("Script error.", line 0) — those come
+      // from browser extensions' injected scripts, not from this app.
+      if (!line || String(msg).indexOf("Script error") === 0) return;
       var el = document.createElement("div");
       el.style.cssText = "background:#FCEBEB;color:#791F1F;padding:10px 16px;font-size:12px;text-align:center";
       el.textContent = "App error: " + msg + " (line " + line + ")";

@@ -1,5 +1,9 @@
 # PCN PCR Calculator — Changelog
 
+## Ver 2.7 — 2026-07-10
+- Error banner no longer shows masked "Script error. (line 0)" noise from browser
+  extensions; only genuine app errors (with message + line) are displayed
+
 ## Ver 2.6 — 2026-07-10
 - Master settings workbook (PCN_PCR_Settings.xlsx) downloadable from the app footer
 - Workbook is the standard way to update fleet / chart data / ref weights / airfields
