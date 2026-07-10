@@ -1,5 +1,5 @@
-const CACHE = "pcr-pcn-v2.1";
-const ASSETS = ["./", "./index.html", "./app.js", "./airfields.js", "./manifest.webmanifest"];
+const CACHE = "pcr-pcn-v2.2";
+const ASSETS = ["./", "./index.html", "./app.js", "./airfields.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));

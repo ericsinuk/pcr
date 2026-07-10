@@ -7,6 +7,8 @@ app = open("app.js").read()
 afs = open("airfields.js").read()
 
 src = src.replace('  <link rel="manifest" href="manifest.webmanifest" />\n', '')
+src = src.replace('  <link rel="icon" type="image/png" href="icon-192.png" />\n', '')
+src = src.replace('  <link rel="apple-touch-icon" href="apple-touch-icon.png" />\n', '')
 app = app.replace('''// PWA service worker
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
