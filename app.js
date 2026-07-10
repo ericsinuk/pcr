@@ -1,4 +1,4 @@
-const APP_VERSION = "2.9";
+const APP_VERSION = "2.10";
 const APP_VERSION_DATE = "2026-07-10";
 // NOTE: bump APP_VERSION on every update; keep sw.js CACHE name in sync ("pcr-pcn-v<ver>").
 
@@ -129,6 +129,7 @@ function recalc() {
   $("acType").className = "badge " + (TYPE_BADGE[ac.type] || "cat-MISC");
   $("acMinWt").textContent = fmt(ac.minWt) + " kg";
   $("acMaxTaxi").textContent = fmt(type.maxTaxi) + " kg";
+  $("acrLabel").textContent = unit === "PCR" ? "ACR" : "ACN";
   $("acrRange").textContent = acr.min + " – " + acr.max;
   $("codeChip").textContent = ac.type + " · " + $("pavementSelect").value + " · " + $("subgradeSelect").value + " · " + unit;
   $("wtLabel").textContent = "Actual weight (kg)";

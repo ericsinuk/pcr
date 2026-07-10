@@ -1,5 +1,9 @@
 # PCN PCR Calculator — Changelog
 
+## Ver 2.10 — 2026-07-10
+- Calculator summary label now follows the selected system: "ACN range" for PCN,
+  "ACR range" for PCR
+
 ## Ver 2.9 — 2026-07-10
 - Fix: switching MTW/MLW on the Check tab crashed the calculator state
   ("type[calcSystem] is undefined") — the PCR/PCN toggle handler was bound to
