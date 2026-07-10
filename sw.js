@@ -1,4 +1,4 @@
-const CACHE = "pcr-pcn-v2.7";
+const CACHE = "pcr-pcn-v2.8";
 const ASSETS = ["./", "./index.html", "./app.js", "./airfields.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {

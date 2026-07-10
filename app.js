@@ -1,4 +1,4 @@
-const APP_VERSION = "2.7";
+const APP_VERSION = "2.8";
 const APP_VERSION_DATE = "2026-07-10";
 // NOTE: bump APP_VERSION on every update; keep sw.js CACHE name in sync ("pcr-pcn-v<ver>").
 
@@ -234,15 +234,7 @@ let refSel = "MTW";
     sel.addEventListener("change", renderChk);
   });
 
-  const dl = $("afList");
-  AIRFIELDS.forEach(a => {
-    const opt = document.createElement("option");
-    opt.value = a[0];
-    opt.label = a[0] + " — " + a[2] + (a[1] ? " (" + a[1] + ")" : "");
-    dl.appendChild(opt);
-  });
-
-  $("icaoInput").addEventListener("input", renderChk);
+  initAutocomplete();
   document.querySelectorAll("#refSeg .seg-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll("#refSeg .seg-btn").forEach(b => b.classList.remove("active"));
@@ -252,6 +244,67 @@ let refSel = "MTW";
     });
   });
 })();
+
+function initAutocomplete() {
+  const input = $("icaoInput"), list = $("acList");
+  let items = [], sel = -1;
+
+  function close() { list.classList.remove("open"); items = []; sel = -1; }
+
+  function pick(icao) {
+    input.value = icao;
+    close();
+    renderChk();
+  }
+
+  function search(q) {
+    q = q.trim().toUpperCase();
+    if (!q) return [];
+    const starts = [], contains = [];
+    for (const a of AIRFIELDS) {
+      if (a[0].startsWith(q) || (a[1] && a[1].startsWith(q))) starts.push(a);
+      else if (a[2].toUpperCase().includes(q)) contains.push(a);
+      if (starts.length >= 12) break;
+    }
+    return starts.concat(contains).slice(0, 12);
+  }
+
+  input.addEventListener("input", () => {
+    renderChk();
+    items = search(input.value);
+    sel = -1;
+    if (!items.length || (items.length === 1 && items[0][0] === input.value.trim().toUpperCase())) { close(); return; }
+    list.innerHTML = items.map(a =>
+      '<div class="ac-item" data-icao="' + a[0] + '"><b>' + a[0] + '</b>' +
+      '<span class="ac-name">' + a[2] + '</span>' +
+      (a[1] ? '<span class="ac-iata">' + a[1] + '</span>' : '') + '</div>').join("");
+    list.classList.add("open");
+  });
+
+  input.addEventListener("keydown", e => {
+    if (!list.classList.contains("open")) return;
+    const nodes = list.children;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      sel = e.key === "ArrowDown" ? Math.min(sel + 1, nodes.length - 1) : Math.max(sel - 1, 0);
+      [...nodes].forEach((n, i) => n.classList.toggle("sel", i === sel));
+      nodes[sel].scrollIntoView({ block: "nearest" });
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      pick(sel >= 0 ? nodes[sel].dataset.icao : items[0][0]);
+    } else if (e.key === "Escape") {
+      close();
+    }
+  });
+
+  // mousedown (not click) so it fires before the input's blur
+  list.addEventListener("mousedown", e => {
+    const item = e.target.closest(".ac-item");
+    if (item) { e.preventDefault(); pick(item.dataset.icao); }
+  });
+
+  input.addEventListener("blur", () => setTimeout(close, 150));
+}
 
 function findAirfield(q) {
   q = q.trim().toUpperCase();

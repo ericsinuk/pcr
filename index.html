@@ -10,6 +10,7 @@
   <meta name="theme-color" content="#FFCC00" />
   <style>
     :root{
+      color-scheme: light;
       --dhl:#FFCC00; --dhl-dark:#E6B800; --dhl-red:#D40511;
       --bg:#ffffff; --bg2:#f7f7f5; --bg3:#efeeea;
       --text:#1a1a18; --text2:#6b6b68; --text3:#9e9e9b;
@@ -49,6 +50,8 @@
     .wrap{max-width:640px;margin:0 auto;padding:16px 14px 40px;display:flex;flex-direction:column;gap:12px}
 
     .card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+    .card.ov{overflow:visible}
+    .card.ov .card-head{border-radius:var(--radius-lg) var(--radius-lg) 0 0}
     .card-head{padding:9px 14px;border-bottom:0.5px solid var(--border);background:var(--bg2);
       font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
     .card-body{padding:14px;display:flex;flex-direction:column;gap:12px}
@@ -149,6 +152,17 @@
     .delta-pos{color:var(--success)}
     .rwy-scroll{overflow-x:auto}
     .chk-empty{padding:40px;text-align:center;color:var(--text3);font-size:12px}
+    .ac-list{
+      position:absolute;top:100%;left:0;right:0;z-index:30;display:none;
+      background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);
+      box-shadow:0 6px 20px rgba(0,0,0,0.12);max-height:280px;overflow-y:auto;margin-top:2px;
+    }
+    .ac-list.open{display:block}
+    .ac-item{padding:7px 10px;font-size:12px;cursor:pointer;display:flex;gap:8px;align-items:baseline}
+    .ac-item:hover,.ac-item.sel{background:var(--blue-bg)}
+    .ac-item b{font-weight:700;min-width:42px}
+    .ac-item .ac-name{color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+    .ac-item .ac-iata{color:var(--text3);font-size:11px}
   </style>
 </head>
 <body>
@@ -269,14 +283,14 @@
   <div class="page" id="page-chk">
   <div class="wrap-wide">
 
-    <div class="card">
+    <div class="card ov">
       <div class="card-head">PCN / PCR Quick Check per Airfield</div>
       <div class="card-body">
         <div class="chk-controls">
-          <div class="field">
+          <div class="field" style="position:relative">
             <label for="icaoInput">ICAO / IATA / name</label>
-            <input type="text" id="icaoInput" list="afList" placeholder="e.g. EYVI" autocomplete="off" spellcheck="false" style="text-transform:uppercase">
-            <datalist id="afList"></datalist>
+            <input type="text" id="icaoInput" placeholder="e.g. EYVI" autocomplete="off" spellcheck="false" style="text-transform:uppercase">
+            <div class="ac-list" id="acList"></div>
           </div>
           <div class="field">
             <label>Reference weight</label>

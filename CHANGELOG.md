@@ -1,5 +1,11 @@
 # PCN PCR Calculator — Changelog
 
+## Ver 2.8 — 2026-07-10
+- Airfield search: custom styled suggestion dropdown (replaces native datalist,
+  which rendered illegibly under some browser/OS themes); arrow-key + Enter
+  navigation, click to select, up to 12 matches by ICAO/IATA/name
+- Form controls forced to light color-scheme for consistency
+
 ## Ver 2.7 — 2026-07-10
 - Error banner no longer shows masked "Script error. (line 0)" noise from browser
   extensions; only genuine app errors (with message + line) are displayed
