@@ -1,5 +1,10 @@
 # PCN PCR Calculator — Changelog
 
+## Ver 2.11 — 2026-07-16
+- PCN/PCR Check tab now available on mobile/tablet too (desktop-only restriction
+  removed); controls stack on narrow screens, runway table scrolls horizontally
+- Settings workbook: Calculator sheet removed; README simplified (helpdesk contact)
+
 ## Ver 2.10 — 2026-07-10
 - Calculator summary label now follows the selected system: "ACN range" for PCN,
   "ACR range" for PCR

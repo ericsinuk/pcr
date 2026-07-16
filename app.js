@@ -1,5 +1,5 @@
-const APP_VERSION = "2.10";
-const APP_VERSION_DATE = "2026-07-10";
+const APP_VERSION = "2.11";
+const APP_VERSION_DATE = "2026-07-16";
 // NOTE: bump APP_VERSION on every update; keep sw.js CACHE name in sync ("pcr-pcn-v<ver>").
 
 /* ================================================================
@@ -392,25 +392,13 @@ function renderChk() {
   }
 }
 
-/* ── Tabs + desktop-only gating ── */
-const mqDesktop = window.matchMedia("(min-width:1000px) and (hover:hover) and (pointer:fine)");
-
+/* ── Tabs ── */
 function showPage(id) {
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === id));
   document.querySelectorAll(".nav-tab").forEach(t => t.classList.toggle("active", t.dataset.page === id));
 }
 document.querySelectorAll(".nav-tab").forEach(t =>
   t.addEventListener("click", () => showPage(t.dataset.page)));
-
-// If the viewport stops qualifying as desktop while on the Check tab, fall back.
-// (addListener fallback: iOS Safari <14 has no addEventListener on MediaQueryList)
-const onMqChange = e => {
-  if (!e.matches && document.getElementById("page-chk").classList.contains("active")) {
-    showPage("page-calc");
-  }
-};
-if (mqDesktop.addEventListener) mqDesktop.addEventListener("change", onMqChange);
-else if (mqDesktop.addListener) mqDesktop.addListener(onMqChange);
 
 // PWA service worker
 if ("serviceWorker" in navigator) {
