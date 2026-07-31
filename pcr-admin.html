@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PCN/PCR Data Admin</title>
+<meta name="robots" content="noindex, nofollow" />
+<style>
+  :root{
+    color-scheme: light;
+    --dhl:#FFCC00; --dhl-dark:#E6B800; --dhl-red:#D40511;
+    --bg:#ffffff; --bg2:#f7f7f5; --bg3:#efeeea;
+    --text:#1a1a18; --text2:#6b6b68; --text3:#9e9e9b;
+    --border:rgba(0,0,0,0.1); --border2:rgba(0,0,0,0.2);
+    --radius:6px; --radius-lg:10px;
+    --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+    --green-bg:#EAF3DE; --green-txt:#27500A;
+    --red-bg:#FCEBEB; --red-txt:#791F1F;
+    --info:#185FA5;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{min-height:100%;font-family:var(--font);background:var(--bg3);color:var(--text);font-size:13px}
+  .topbar{padding:14px 16px;background:var(--dhl);border-bottom:2px solid var(--dhl-dark)}
+  .topbar-title{font-size:15px;font-weight:800;color:var(--dhl-red)}
+  .topbar-sub{font-size:11px;color:rgba(0,0,0,.55);margin-top:2px}
+  .wrap{max-width:640px;margin:0 auto;padding:16px 14px 60px;display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+  .card-head{padding:9px 14px;border-bottom:0.5px solid var(--border);background:var(--bg2);
+    font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+  .card-body{padding:14px;display:flex;flex-direction:column;gap:12px}
+  .field{display:flex;flex-direction:column;gap:4px;position:relative}
+  .field label{font-size:11px;color:var(--text2);font-weight:500}
+  .field input,.field select,.field textarea{
+    font-size:14px;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);
+    background:var(--bg);color:var(--text);outline:none;font-family:var(--font);width:100%;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--info);box-shadow:0 0 0 2px rgba(24,95,165,.1)}
+  .row{display:grid;grid-template-columns:1.3fr 0.8fr 1fr;gap:10px}
+  @media (max-width:560px){ .row{grid-template-columns:1fr 1fr} }
+  .btn{font-size:13px;font-weight:600;padding:9px 14px;border-radius:var(--radius);border:0.5px solid var(--border2);
+    background:var(--bg);color:var(--text);cursor:pointer;font-family:var(--font);width:100%}
+  .btn:hover{background:var(--bg2)}
+  .btn:disabled{opacity:.6;cursor:default}
+  .btn-primary{background:var(--text);color:var(--bg);border-color:var(--text)}
+  .btn-primary:hover{opacity:.85;background:var(--text)}
+  textarea#bulkPaste{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;min-height:110px;resize:vertical}
+  .result{font-size:12px;border-radius:var(--radius);padding:9px 12px;line-height:1.6}
+  .result.ok{background:var(--green-bg);color:var(--green-txt)}
+  .result.bad{background:var(--red-bg);color:var(--red-txt)}
+  .hint{font-size:10px;color:var(--text3);line-height:1.5}
+  .ac-list{position:absolute;top:100%;left:0;right:0;z-index:30;display:none;background:var(--bg);
+    border:0.5px solid var(--border2);border-radius:var(--radius);box-shadow:0 6px 20px rgba(0,0,0,.12);
+    max-height:220px;overflow-y:auto;margin-top:2px}
+  .ac-list.open{display:block}
+  .ac-item{padding:7px 10px;font-size:12px;cursor:pointer;display:flex;gap:8px}
+  .ac-item:hover{background:#E6F1FB}
+  .ac-item b{min-width:42px}
+  .ac-item span{color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-title">PCN/PCR Data Admin</div>
+    <div class="topbar-sub">Upload live runway pavement updates — internal tool, not linked from the main app</div>
+  </div>
+
+  <div class="wrap">
+
+    <div class="card">
+      <div class="card-head">Passcode</div>
+      <div class="card-body">
+        <div class="field">
+          <label for="passcode">Update passcode</label>
+          <input type="password" id="passcode" autocomplete="off" placeholder="required to submit">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">Single Update</div>
+      <div class="card-body">
+        <div class="row">
+          <div class="field">
+            <label for="icaoInput">Airfield (ICAO / IATA / name)</label>
+            <input type="text" id="icaoInput" autocomplete="off" spellcheck="false" style="text-transform:uppercase" placeholder="e.g. EYVI">
+            <div class="ac-list" id="acList"></div>
+          </div>
+          <div class="field">
+            <label for="rwySelect">Runway</label>
+            <select id="rwySelect"><option value="">—</option></select>
+          </div>
+          <div class="field">
+            <label for="pcnInput">New PCN/PCR</label>
+            <input type="text" id="pcnInput" placeholder="e.g. 82/F/C/W/T">
+          </div>
+        </div>
+        <button class="btn btn-primary" id="submitOne">Submit Update</button>
+        <div class="hint">Format: value/pavement(R or F)/subgrade(A–D)/tyre-pressure-code/method — e.g. <code>82/F/C/W/T</code></div>
+        <div id="resultOne"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">Bulk Update</div>
+      <div class="card-body">
+        <div class="field">
+          <label for="bulkPaste">Paste rows: ICAO,RWY,PCN — one per line</label>
+          <textarea id="bulkPaste" placeholder="EYVI,01,82/F/C/W/T&#10;EYVI,19,82/F/C/W/T"></textarea>
+        </div>
+        <button class="btn btn-primary" id="submitBulk">Submit Batch</button>
+        <div id="resultBulk"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="airfields.js"></script>
+  <script>
+    const PCR_API_BASE = "https://dhl-audit.duckdns.org/pcr-api";
+    const $ = id => document.getElementById(id);
+    const byIcao = {};
+    AIRFIELDS.forEach(a => { byIcao[a[0]] = a; });
+
+    let selectedIcao = null;
+
+    // Autocomplete (same pattern as the main app's Check tab)
+    (function initAutocomplete() {
+      const input = $("icaoInput"), list = $("acList");
+      let items = [], sel = -1;
+      function close() { list.classList.remove("open"); items = []; sel = -1; }
+      function pick(icao) { input.value = icao; close(); setAirfield(icao); }
+      function search(q) {
+        q = q.trim().toUpperCase();
+        if (!q) return [];
+        const starts = [], contains = [];
+        for (const a of AIRFIELDS) {
+          if (a[0].startsWith(q) || (a[1] && a[1].startsWith(q))) starts.push(a);
+          else if (a[2].toUpperCase().includes(q)) contains.push(a);
+          if (starts.length >= 12) break;
+        }
+        return starts.concat(contains).slice(0, 12);
+      }
+      input.addEventListener("input", () => {
+        selectedIcao = null;
+        items = search(input.value);
+        sel = -1;
+        if (!items.length) { close(); return; }
+        list.innerHTML = items.map(a =>
+          '<div class="ac-item" data-icao="' + a[0] + '"><b>' + a[0] + '</b><span>' + a[2] + '</span></div>').join("");
+        list.classList.add("open");
+      });
+      input.addEventListener("keydown", e => {
+        if (!list.classList.contains("open")) return;
+        const nodes = list.children;
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          sel = e.key === "ArrowDown" ? Math.min(sel + 1, nodes.length - 1) : Math.max(sel - 1, 0);
+          [...nodes].forEach((n, i) => n.classList.toggle("sel", i === sel));
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          pick(sel >= 0 ? nodes[sel].dataset.icao : items[0][0]);
+        } else if (e.key === "Escape") close();
+      });
+      list.addEventListener("mousedown", e => {
+        const item = e.target.closest(".ac-item");
+        if (item) { e.preventDefault(); pick(item.dataset.icao); }
+      });
+      input.addEventListener("blur", () => setTimeout(close, 150));
+    })();
+
+    function setAirfield(icao) {
+      const af = byIcao[icao.toUpperCase()];
+      const sel = $("rwySelect");
+      sel.innerHTML = "";
+      if (!af) { sel.innerHTML = "<option value=''>—</option>"; selectedIcao = null; return; }
+      selectedIcao = af[0];
+      af[6].forEach(([rwy, , , pcn]) => {
+        const opt = document.createElement("option");
+        opt.value = rwy;
+        opt.textContent = rwy + (pcn ? " (currently " + pcn + ")" : " (no published PCN)");
+        sel.appendChild(opt);
+      });
+    }
+
+    function showResult(el, ok, text) {
+      el.innerHTML = "<div class='result " + (ok ? "ok" : "bad") + "'>" + text + "</div>";
+    }
+
+    function submitUpdates(updates, resultEl, btn) {
+      const passcode = $("passcode").value;
+      if (!passcode) { showResult(resultEl, false, "Enter the passcode first."); return; }
+      if (!updates.length) { showResult(resultEl, false, "Nothing to submit."); return; }
+      btn.disabled = true;
+      fetch(PCR_API_BASE + "/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passcode, updates }),
+      })
+        .then(r => r.json().then(data => ({ status: r.status, data })))
+        .then(({ status, data }) => {
+          if (status === 401) return showResult(resultEl, false, "Wrong passcode.");
+          if (status !== 200) return showResult(resultEl, false, "Error: " + (data.error || status));
+          let html = "";
+          if (data.applied.length) html += "<div class='result ok'>Applied " + data.applied.length + ": " +
+            data.applied.map(a => a.icao + " " + a.rwy + " → " + a.pcn).join("; ") + "</div>";
+          if (data.rejected.length) html += "<div class='result bad' style='margin-top:6px'>Rejected " + data.rejected.length + ": " +
+            data.rejected.map(r => r.icao + " " + r.rwy + " (" + r.reason + ")").join("; ") + "</div>";
+          resultEl.innerHTML = html || "<div class='result bad'>Nothing applied.</div>";
+        })
+        .catch(() => showResult(resultEl, false, "Couldn't reach the update server."))
+        .finally(() => { btn.disabled = false; });
+    }
+
+    $("submitOne").addEventListener("click", () => {
+      const rwy = $("rwySelect").value, pcn = $("pcnInput").value.trim();
+      const resultEl = $("resultOne");
+      if (!selectedIcao) return showResult(resultEl, false, "Pick a known airfield first.");
+      if (!rwy) return showResult(resultEl, false, "Pick a runway.");
+      if (!pcn) return showResult(resultEl, false, "Enter the new PCN/PCR value.");
+      submitUpdates([{ icao: selectedIcao, rwy, pcn }], resultEl, $("submitOne"));
+    });
+
+    $("submitBulk").addEventListener("click", () => {
+      const resultEl = $("resultBulk");
+      const lines = $("bulkPaste").value.split("\n").map(l => l.trim()).filter(Boolean);
+      const updates = [];
+      const badLines = [];
+      lines.forEach(line => {
+        const parts = line.split(",").map(p => p.trim());
+        if (parts.length !== 3) { badLines.push(line); return; }
+        updates.push({ icao: parts[0], rwy: parts[1], pcn: parts[2] });
+      });
+      if (badLines.length) {
+        showResult(resultEl, false, badLines.length + " line(s) not in ICAO,RWY,PCN format: " + badLines.join(" | "));
+        return;
+      }
+      submitUpdates(updates, resultEl, $("submitBulk"));
+    });
+  </script>
+</body>
+</html>

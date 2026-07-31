@@ -1,4 +1,4 @@
-const APP_VERSION = "2.12";
+const APP_VERSION = "2.13";
 const APP_VERSION_DATE = "2026-07-31";
 // NOTE: bump APP_VERSION on every update; keep sw.js CACHE name in sync ("pcr-pcn-v<ver>").
 
@@ -192,6 +192,34 @@ const CHK_TYPES = [["757-200","B757"], ["767-300ER","B767"], ["777F","B777"]];
 
 let refSel = "MTW";
 
+// Live PCN/PCR runway overrides (uploaded via the separate admin tool).
+// Read-only from here — this page never writes. Fails silently/gracefully
+// if the API is unreachable (e.g. standalone file build, local testing).
+const PCR_API_BASE = "https://dhl-audit.duckdns.org/pcr-api";
+let OVERRIDES = {};
+
+function fetchOverrides() {
+  const status = $("syncStatus"), btn = $("getUpdateBtn");
+  if (btn) btn.disabled = true;
+  if (status) { status.textContent = "Checking for updates…"; status.className = "sync-status"; }
+  return fetch(PCR_API_BASE + "/overrides", { cache: "no-store" })
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(data => {
+      OVERRIDES = data || {};
+      const n = Object.keys(OVERRIDES).length;
+      if (status) {
+        status.textContent = "Synced — " + n + " live update" + (n === 1 ? "" : "s") +
+          " (" + new Date().toLocaleTimeString() + ")";
+        status.className = "sync-status ok";
+      }
+      renderChk();
+    })
+    .catch(() => {
+      if (status) { status.textContent = "Couldn't reach update server — showing baked-in data"; status.className = "sync-status err"; }
+    })
+    .finally(() => { if (btn) btn.disabled = false; });
+}
+
 (function initChk() {
   initAutocomplete();
   document.querySelectorAll("#refSeg .seg-btn").forEach(btn => {
@@ -202,6 +230,9 @@ let refSel = "MTW";
       renderChk();
     });
   });
+  const getBtn = $("getUpdateBtn");
+  if (getBtn) getBtn.addEventListener("click", fetchOverrides);
+  fetchOverrides(); // silent best-effort sync on load
 })();
 
 function initAutocomplete() {
@@ -306,11 +337,17 @@ function renderChk() {
   let anyCalc = false;
 
   runways.forEach(([rwy, len, w, pcnStr]) => {
+    const ov = OVERRIDES[icao + "|" + rwy];
+    const liveStr = ov ? ov.pcn : pcnStr;
+    const pcnCell = ov
+      ? "<td>" + liveStr + " <span title='Updated " + new Date(ov.updatedAt).toLocaleString() +
+        "' style='color:var(--info);font-size:10px;font-weight:600'>●&nbsp;updated</span></td>"
+      : "<td>" + (pcnStr || "—") + "</td>";
     html += "<tr><td><b>" + rwy + "</b></td>" +
       "<td class='num'>" + (len ? fmt(len) : "—") + "</td>" +
       "<td class='num'>" + (w ? fmt(w) : "—") + "</td>" +
-      "<td>" + (pcnStr || "—") + "</td>";
-    const p = system ? parsePcn(pcnStr) : null;
+      pcnCell;
+    const p = system ? parsePcn(liveStr) : null;
     CHK_TYPES.forEach(([type], i) => {
       const chart = p && AIRCRAFT_TYPES[type][system][p.pav + p.sub];
       if (!chart) { html += "<td class='num'>—</td><td class='num'>—</td>"; return; }

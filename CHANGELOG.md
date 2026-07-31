@@ -1,5 +1,20 @@
 # PCN PCR Calculator — Changelog
 
+## Ver 2.13 — 2026-07-31
+- Live PCN/PCR runway updates: new tiny backend (pcr-api) lets updated
+  runway pavement numbers be pushed out without a full app redeploy.
+- New **"Get PCN/PCR Updates" button** on the Check tab — fetches the latest
+  overrides and applies them to the displayed runway table (with a small
+  "updated" badge + timestamp on affected rows). Auto-syncs once on page
+  load too; degrades gracefully (silently) if the API is unreachable, e.g.
+  the standalone pcr-all.html build.
+- New **admin-only upload tool** (`pcr-admin.html`) — not linked from the
+  main app or its navigation, reachable only by direct URL. Supports a
+  single-row form and a bulk paste (ICAO,RWY,PCN per line). All writes
+  require a shared passcode; the read side (Check tab) stays open, matching
+  the app's no-login design — only the write path is gated, since it can
+  affect real pavement/weight decisions.
+
 ## Ver 2.12 — 2026-07-31
 - **Management decision: APS weight is no longer used anywhere in the calculation.**
   Both the Calculator and PCN/PCR Check tabs now use Boeing's own published

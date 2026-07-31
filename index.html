@@ -133,7 +133,10 @@
 
     /* ── Check page ── */
     .wrap-wide{max-width:1100px;margin:0 auto;padding:16px 14px 40px;display:flex;flex-direction:column;gap:12px}
-    .chk-controls{display:grid;grid-template-columns:1.6fr 1fr;gap:10px;align-items:end}
+    .chk-controls{display:grid;grid-template-columns:1.3fr 0.8fr 0.9fr;gap:10px;align-items:end}
+    .sync-status{font-size:10px;color:var(--text3);margin-top:3px}
+    .sync-status.ok{color:var(--success)}
+    .sync-status.err{color:var(--danger)}
     .chk-controls .field label b{color:var(--text)}
     .af-head{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:12px;color:var(--text2)}
     .af-head .af-name{font-size:15px;font-weight:700;color:var(--text)}
@@ -149,7 +152,17 @@
     .chk-empty{padding:40px;text-align:center;color:var(--text3);font-size:12px}
     @media (max-width:800px){
       .chk-controls{grid-template-columns:1fr 1fr}
+      .chk-controls .btn-getupdate-wrap{grid-column:1 / -1}
     }
+    .btn{
+      font-size:13px;font-weight:600;padding:8px 14px;border-radius:var(--radius);
+      border:0.5px solid var(--border2);background:var(--bg);color:var(--text);cursor:pointer;
+      font-family:var(--font);width:100%;
+    }
+    .btn:hover{background:var(--bg2)}
+    .btn:disabled{opacity:.6;cursor:default}
+    .btn-primary{background:var(--text);color:var(--bg);border-color:var(--text)}
+    .btn-primary:hover{opacity:.85;background:var(--text)}
     .ac-list{
       position:absolute;top:100%;left:0;right:0;z-index:30;display:none;
       background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);
@@ -295,6 +308,11 @@
               <button type="button" class="seg-btn active" data-ref="MTW">MTW</button>
               <button type="button" class="seg-btn" data-ref="MLW">MLW</button>
             </div>
+          </div>
+          <div class="field btn-getupdate-wrap">
+            <label>&nbsp;</label>
+            <button type="button" class="btn" id="getUpdateBtn">Get PCN/PCR Updates</button>
+            <div class="sync-status" id="syncStatus">Not synced yet</div>
           </div>
         </div>
       </div>
