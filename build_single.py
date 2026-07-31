@@ -14,7 +14,6 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }''', '// (standalone build — no service worker)')
 
-src = src.replace('<br>\n      <a class="xlsx-dl" href="PCN_PCR_Settings.xlsx" download>Download settings workbook (Excel)</a>', '')
 out = src.replace('  <script src="airfields.js"></script>\n  <script src="app.js"></script>',
                   '  <script>\n' + afs + '\n' + app + '\n  </script>')
 assert '<script src=' not in out and 'serviceWorker' not in out

@@ -105,8 +105,6 @@
     .verdict.bad{color:var(--danger);background:var(--red-bg);padding:9px 12px;border-radius:var(--radius)}
 
     .foot-note{font-size:10px;color:var(--text3);text-align:center;line-height:1.5}
-    .xlsx-dl{color:var(--info);text-decoration:none;font-weight:500}
-    .xlsx-dl:hover{text-decoration:underline}
 
     @media (max-width:480px){
       .field-grid{grid-template-columns:1fr}
@@ -135,7 +133,7 @@
 
     /* ── Check page ── */
     .wrap-wide{max-width:1100px;margin:0 auto;padding:16px 14px 40px;display:flex;flex-direction:column;gap:12px}
-    .chk-controls{display:grid;grid-template-columns:1.2fr 0.8fr 1fr 1fr 1fr;gap:10px;align-items:end}
+    .chk-controls{display:grid;grid-template-columns:1.6fr 1fr;gap:10px;align-items:end}
     .chk-controls .field label b{color:var(--text)}
     .af-head{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:12px;color:var(--text2)}
     .af-head .af-name{font-size:15px;font-weight:700;color:var(--text)}
@@ -206,8 +204,8 @@
       <div class="card-body">
         <div class="field-grid">
           <div class="field">
-            <label for="regSelect">Aircraft registration</label>
-            <select id="regSelect"></select>
+            <label for="acTypeSelect">Aircraft Type</label>
+            <select id="acTypeSelect"></select>
           </div>
           <div class="field">
             <label>System</label>
@@ -272,9 +270,8 @@
     </div>
 
     <div class="foot-note">
-      Linear interpolation between each aircraft's minimum weight and max taxi weight.<br>
-      Results are advisory — verify against the current AIP / airport data.<br>
-      <a class="xlsx-dl" href="PCN_PCR_Settings.xlsx" download>Download settings workbook (Excel)</a>
+      Linear interpolation between Boeing's published minimum weight and max taxi weight (Boeing ACAP).<br>
+      Results are advisory — verify against the current AIP / airport data.
     </div>
 
   </div>
@@ -299,18 +296,6 @@
               <button type="button" class="seg-btn" data-ref="MLW">MLW</button>
             </div>
           </div>
-          <div class="field">
-            <label for="chkReg757">B757 aircraft</label>
-            <select id="chkReg757"></select>
-          </div>
-          <div class="field">
-            <label for="chkReg767">B767 aircraft</label>
-            <select id="chkReg767"></select>
-          </div>
-          <div class="field">
-            <label for="chkReg777">B777 aircraft</label>
-            <select id="chkReg777"></select>
-          </div>
         </div>
       </div>
     </div>
@@ -332,9 +317,8 @@
     </div>
 
     <div class="foot-note">
-      Max weight per runway is interpolated from the published PCN/PCR using the selected tail's minimum weight.<br>
-      Δ = max allowable weight − selected reference weight (MTW/MLW). Results are advisory — verify against the current AIP.<br>
-      <a class="xlsx-dl" href="PCN_PCR_Settings.xlsx" download>Download settings workbook (Excel)</a>
+      Max weight per runway is interpolated from the published PCN/PCR using Boeing's published minimum weight per type (Boeing ACAP).<br>
+      Δ = max allowable weight − selected reference weight (MTW/MLW). Results are advisory — verify against the current AIP.
     </div>
 
   </div>
