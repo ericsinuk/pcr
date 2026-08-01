@@ -68,17 +68,30 @@ const server = http.createServer((req, res) => {
       const overrides = JSON.parse(fs.readFileSync(OVERRIDES_FILE, "utf8"));
       const applied = [], rejected = [];
 
+      function processRunwayUpdate(icao, rwyInput, pcn, af, applied, rejected) {
+        // Handle paired runway format: "14L/32R" → apply to both "14L" and "32R"
+        const rwyParts = rwyInput.split('/').map(s => s.trim());
+        let runwaysToUpdate = rwyParts;
+
+        // If input is paired (e.g., 14L/32R), apply to both directions
+        // If input is single (e.g., 14L), apply to that one
+        runwaysToUpdate.forEach(rwy => {
+          const rwyExists = af[6].some(r => r[0] === rwy);
+          if (!rwyExists) return rejected.push({ icao, rwy: rwyInput, pcn, reason: "unknown runway for " + icao });
+          overrides[icao + "|" + rwy] = { icao, rwy, pcn, updatedAt: new Date().toISOString() };
+          applied.push({ icao, rwy, pcn });
+        });
+      }
+
       (Array.isArray(data.updates) ? data.updates : []).forEach(u => {
         const icao = String(u.icao || "").trim().toUpperCase();
         const rwy = String(u.rwy || "").trim();
         const pcn = String(u.pcn || "").trim();
         const af = byIcao[icao];
         if (!af) return rejected.push({ icao, rwy, pcn, reason: "unknown ICAO" });
-        const rwyExists = af[6].some(r => r[0] === rwy);
-        if (!rwyExists) return rejected.push({ icao, rwy, pcn, reason: "unknown runway for " + icao });
+
+        processRunwayUpdate(icao, rwy, pcn, af, applied, rejected);
         if (!PCN_RE.test(pcn)) return rejected.push({ icao, rwy, pcn, reason: "PCN format looks wrong (expect e.g. 82/F/C/W/T)" });
-        overrides[icao + "|" + rwy] = { icao, rwy, pcn, updatedAt: new Date().toISOString() };
-        applied.push({ icao, rwy, pcn });
       });
 
       fs.writeFileSync(OVERRIDES_FILE, JSON.stringify(overrides, null, 2));
