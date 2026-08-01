@@ -327,7 +327,7 @@ function renderChk() {
 
   let html = "<tr><th>RWY</th><th>Published " + (system || "PCN/PCR") + "</th>";
   CHK_TYPES.forEach(([, lbl]) => {
-    html += "<th>" + lbl + " max wt (kg)</th><th>Δ vs " + refSel + "</th>";
+    html += "<th class='num'>" + lbl + " max wt (kg)</th><th class='num'>Δ vs " + refSel + "</th>";
   });
   html += "</tr>";
 
