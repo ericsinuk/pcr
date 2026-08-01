@@ -76,8 +76,12 @@ const server = http.createServer((req, res) => {
         // If input is paired (e.g., 14L/32R), apply to both directions
         // If input is single (e.g., 14L), apply to that one
         runwaysToUpdate.forEach(rwy => {
-          const rwyExists = af[6].some(r => r[0] === rwy);
-          if (!rwyExists) return rejected.push({ icao, rwy: rwyInput, pcn, reason: "unknown runway for " + icao });
+          let rwyExists = af[6].some(r => r[0] === rwy);
+          // Auto-create missing runway with placeholder length/width (not used in calculations)
+          if (!rwyExists) {
+            af[6].push([rwy, 0, 0, null]);
+            rwyExists = true;
+          }
           overrides[icao + "|" + rwy] = { icao, rwy, pcn, updatedAt: new Date().toISOString() };
           applied.push({ icao, rwy, pcn });
         });

@@ -327,7 +327,7 @@ function renderChk() {
     (ops ? '<span>' + ops + '</span>' : '') +
     (status ? '<span>' + status + '</span>' : '');
 
-  let html = "<tr><th>RWY</th><th>Length (ft)</th><th>Width (ft)</th><th>Published " + (system || "PCN/PCR") + "</th>";
+  let html = "<tr><th>RWY</th><th>Published " + (system || "PCN/PCR") + "</th>";
   CHK_TYPES.forEach(([, lbl]) => {
     html += "<th>" + lbl + " max wt (kg)</th><th>Δ vs " + refSel + "</th>";
   });
@@ -344,8 +344,6 @@ function renderChk() {
         "' style='color:var(--info);font-size:10px;font-weight:600'>●&nbsp;updated</span></td>"
       : "<td>" + (pcnStr || "—") + "</td>";
     html += "<tr><td><b>" + rwy + "</b></td>" +
-      "<td class='num'>" + (len ? fmt(len) : "—") + "</td>" +
-      "<td class='num'>" + (w ? fmt(w) : "—") + "</td>" +
       pcnCell;
     const p = system ? parsePcn(liveStr) : null;
     CHK_TYPES.forEach(([type], i) => {
