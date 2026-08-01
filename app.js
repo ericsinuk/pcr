@@ -323,9 +323,7 @@ function renderChk() {
     '<span class="af-name">' + name + '</span>' +
     '<span><b>' + icao + '</b>' + (iata ? ' / ' + iata : '') + '</span>' +
     (system ? '<span class="badge ' + (system === "PCR" ? "cat-B777" : "cat-B767") + '">' + system + '</span>'
-            : '<span class="badge cat-MISC">system not published</span>') +
-    (ops ? '<span>' + ops + '</span>' : '') +
-    (status ? '<span>' + status + '</span>' : '');
+            : '<span class="badge cat-MISC">system not published</span>');
 
   let html = "<tr><th>RWY</th><th>Published " + (system || "PCN/PCR") + "</th>";
   CHK_TYPES.forEach(([, lbl]) => {
