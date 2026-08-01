@@ -105,9 +105,10 @@
       <div class="card-body">
         <div class="field">
           <label for="bulkPaste">Paste rows: ICAO,RWY,PCN — one per line</label>
-          <textarea id="bulkPaste" placeholder="EYVI,01,82/F/C/W/T&#10;EYVI,19,82/F/C/W/T"></textarea>
+          <textarea id="bulkPaste" placeholder="EYVI,01,82/F/C/W/T&#10;EYVI,19,82/F/C/W/T&#10;AYPY,14L/32R,70/F/C/X/U"></textarea>
         </div>
         <button class="btn btn-primary" id="submitBulk">Submit Batch</button>
+        <div class="hint">Supports paired runway format: <code>14L/32R</code> applies to both 14L and 32R</div>
         <div id="resultBulk"></div>
       </div>
     </div>
