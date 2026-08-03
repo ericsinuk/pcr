@@ -45,7 +45,48 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, "http://x");
 
   if (req.method === "GET" && url.pathname === "/overrides") {
-    return json(res, 200, JSON.parse(fs.readFileSync(OVERRIDES_FILE, "utf8")));
+    const allOverrides = JSON.parse(fs.readFileSync(OVERRIDES_FILE, "utf8"));
+    const today = new Date().toISOString().split("T")[0];
+
+    // Group by icao|rwy, select highest WEF that's <= today, and find next scheduled
+    const activeOverrides = {};
+    const wefDates = new Set();
+
+    for (const key in allOverrides) {
+      const override = allOverrides[key];
+      wefDates.add(override.wef);
+      const runwayKey = override.icao + "|" + override.rwy;
+
+      if (!activeOverrides[runwayKey]) {
+        activeOverrides[runwayKey] = null;
+      }
+
+      // Select active version: highest WEF date <= today
+      if (override.wef <= today) {
+        if (!activeOverrides[runwayKey] || override.wef > activeOverrides[runwayKey].wef) {
+          activeOverrides[runwayKey] = override;
+        }
+      }
+    }
+
+    // Find next scheduled WEF (lowest WEF date > today)
+    let nextWef = null;
+    for (const wef of wefDates) {
+      if (wef > today && (!nextWef || wef < nextWef)) {
+        nextWef = wef;
+      }
+    }
+
+    // Clean up nulls and flatten to the expected format
+    const result = {};
+    for (const key in activeOverrides) {
+      if (activeOverrides[key]) {
+        const override = activeOverrides[key];
+        result[override.icao + "|" + override.rwy] = override;
+      }
+    }
+
+    return json(res, 200, { overrides: result, currentWef: today, nextWef });
   }
 
   if (req.method === "GET" && url.pathname === "/health") {
@@ -68,7 +109,7 @@ const server = http.createServer((req, res) => {
       const overrides = JSON.parse(fs.readFileSync(OVERRIDES_FILE, "utf8"));
       const applied = [], rejected = [];
 
-      function processRunwayUpdate(icao, rwyInput, pcn, af, applied, rejected) {
+      function processRunwayUpdate(icao, rwyInput, pcn, wef, af, applied, rejected) {
         // Handle paired runway format: "14L/32R" → apply to both "14L" and "32R"
         const rwyParts = rwyInput.split('/').map(s => s.trim());
         let runwaysToUpdate = rwyParts;
@@ -82,10 +123,14 @@ const server = http.createServer((req, res) => {
             af[6].push([rwy, 0, 0, null]);
             rwyExists = true;
           }
-          overrides[icao + "|" + rwy] = { icao, rwy, pcn, updatedAt: new Date().toISOString() };
+          // Versioned storage: icao|rwy|wef
+          const key = icao + "|" + rwy + "|" + wef;
+          overrides[key] = { icao, rwy, pcn, wef };
           applied.push({ icao, rwy, pcn });
         });
       }
+
+      const wef = String(data.wef || "").trim();
 
       (Array.isArray(data.updates) ? data.updates : []).forEach(u => {
         const icao = String(u.icao || "").trim().toUpperCase();
@@ -93,13 +138,13 @@ const server = http.createServer((req, res) => {
         const pcn = String(u.pcn || "").trim();
         const af = byIcao[icao];
         if (!af) return rejected.push({ icao, rwy, pcn, reason: "unknown ICAO" });
-
-        processRunwayUpdate(icao, rwy, pcn, af, applied, rejected);
         if (!PCN_RE.test(pcn)) return rejected.push({ icao, rwy, pcn, reason: "PCN format looks wrong (expect e.g. 82/F/C/W/T)" });
+
+        processRunwayUpdate(icao, rwy, pcn, wef, af, applied, rejected);
       });
 
       fs.writeFileSync(OVERRIDES_FILE, JSON.stringify(overrides, null, 2));
-      return json(res, 200, { applied, rejected });
+      return json(res, 200, { applied, rejected, wef });
     });
     return;
   }

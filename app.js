@@ -205,11 +205,12 @@ function fetchOverrides() {
   return fetch(PCR_API_BASE + "/overrides", { cache: "no-store" })
     .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(data => {
-      OVERRIDES = data || {};
-      const n = Object.keys(OVERRIDES).length;
+      OVERRIDES = (data && data.overrides) ? data.overrides : (data || {});
       if (status) {
-        status.textContent = "Synced — " + n + " live update" + (n === 1 ? "" : "s") +
-          " (" + new Date().toLocaleTimeString() + ")";
+        const currentWef = data && data.currentWef ? data.currentWef : "unknown";
+        const nextWef = data && data.nextWef ? data.nextWef : null;
+        const wefStr = nextWef ? "Live (" + currentWef + ") → Scheduled (" + nextWef + ")" : "Live (" + currentWef + ")";
+        status.textContent = "Synced data: " + wefStr;
         status.className = "sync-status ok";
       }
       renderChk();
@@ -338,8 +339,8 @@ function renderChk() {
     const ov = OVERRIDES[icao + "|" + rwy];
     const liveStr = ov ? ov.pcn : pcnStr;
     const pcnCell = ov
-      ? "<td>" + liveStr + " <span title='Updated " + new Date(ov.updatedAt).toLocaleString() +
-        "' style='color:var(--info);font-size:10px;font-weight:600'>●&nbsp;updated</span></td>"
+      ? "<td>" + liveStr + " <span title='WEF " + ov.wef +
+        "' style='color:var(--info);font-size:10px;font-weight:600'>●&nbsp;live</span></td>"
       : "<td>" + (pcnStr || "—") + "</td>";
     html += "<tr><td><b>" + rwy + "</b></td>" +
       pcnCell;
