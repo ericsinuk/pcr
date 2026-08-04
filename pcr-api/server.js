@@ -91,14 +91,19 @@ const server = http.createServer((req, res) => {
     // Find current WEF (highest WEF date <= today) and next scheduled WEF
     let currentWef = null;
     let nextWef = null;
+    console.log("[DEBUG] wefDates:", Array.from(wefDates), "today:", today);
     for (const wef of wefDates) {
+      console.log("[DEBUG] checking wef:", wef, "<=", today, "?", wef <= today);
       if (wef <= today && (!currentWef || wef > currentWef)) {
+        console.log("[DEBUG] setting currentWef to:", wef);
         currentWef = wef;
       }
       if (wef > today && (!nextWef || wef < nextWef)) {
+        console.log("[DEBUG] setting nextWef to:", wef);
         nextWef = wef;
       }
     }
+    console.log("[DEBUG] final currentWef:", currentWef, "nextWef:", nextWef);
 
     // Clean up nulls and flatten to the expected format
     const result = {};
