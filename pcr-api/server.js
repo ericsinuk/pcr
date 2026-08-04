@@ -69,9 +69,13 @@ const server = http.createServer((req, res) => {
       }
     }
 
-    // Find next scheduled WEF (lowest WEF date > today)
+    // Find current WEF (highest WEF date <= today) and next scheduled WEF
+    let currentWef = null;
     let nextWef = null;
     for (const wef of wefDates) {
+      if (wef <= today && (!currentWef || wef > currentWef)) {
+        currentWef = wef;
+      }
       if (wef > today && (!nextWef || wef < nextWef)) {
         nextWef = wef;
       }
@@ -86,7 +90,7 @@ const server = http.createServer((req, res) => {
       }
     }
 
-    return json(res, 200, { overrides: result, currentWef: today, nextWef });
+    return json(res, 200, { overrides: result, currentWef, nextWef });
   }
 
   if (req.method === "GET" && url.pathname === "/health") {

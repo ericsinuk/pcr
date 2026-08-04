@@ -198,6 +198,18 @@ let refSel = "MTW";
 const PCR_API_BASE = "https://dhl-audit.duckdns.org/pcr-api";
 let OVERRIDES = {};
 
+function formatWefDate(isoDate) {
+  // Convert "2026-07-30" to "30Jul26"
+  if (!isoDate) return "unknown";
+  const m = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return isoDate;
+  const months = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const day = parseInt(m[3]);
+  const month = months[parseInt(m[2])];
+  const year = m[1].slice(2);
+  return day + month + year;
+}
+
 function fetchOverrides() {
   const status = $("syncStatus"), btn = $("getUpdateBtn");
   if (btn) btn.disabled = true;
@@ -207,8 +219,8 @@ function fetchOverrides() {
     .then(data => {
       OVERRIDES = (data && data.overrides) ? data.overrides : (data || {});
       if (status) {
-        const currentWef = data && data.currentWef ? data.currentWef : "unknown";
-        const nextWef = data && data.nextWef ? data.nextWef : null;
+        const currentWef = data && data.currentWef ? formatWefDate(data.currentWef) : "unknown";
+        const nextWef = data && data.nextWef ? formatWefDate(data.nextWef) : null;
         const wefStr = nextWef ? "Live (" + currentWef + ") → Scheduled (" + nextWef + ")" : "Live (" + currentWef + ")";
         status.textContent = "Synced data: " + wefStr;
         status.className = "sync-status ok";
