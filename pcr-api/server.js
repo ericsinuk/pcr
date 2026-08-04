@@ -48,13 +48,31 @@ const server = http.createServer((req, res) => {
     const allOverrides = JSON.parse(fs.readFileSync(OVERRIDES_FILE, "utf8"));
     const today = new Date().toISOString().split("T")[0];
 
+    // Convert user-friendly date format (DDMmmYY) to ISO format (YYYY-MM-DD)
+    function normalizeWef(wef) {
+      if (!wef) return null;
+      // Already in ISO format
+      if (/^\d{4}-\d{2}-\d{2}$/.test(wef)) return wef;
+      // User format: DDMmmYY (e.g., 03Aug26)
+      const m = wef.match(/^(\d{1,2})([A-Za-z]{3})(\d{2})$/);
+      if (m) {
+        const months = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+        const day = m[1].padStart(2, "0");
+        const month = String(months[m[2].toLowerCase()]).padStart(2, "0");
+        const year = "20" + m[3];
+        return year + "-" + month + "-" + day;
+      }
+      return wef; // Return as-is if unrecognized
+    }
+
     // Group by icao|rwy, select highest WEF that's <= today, and find next scheduled
     const activeOverrides = {};
     const wefDates = new Set();
 
     for (const key in allOverrides) {
       const override = allOverrides[key];
-      wefDates.add(override.wef);
+      const normalizedWef = normalizeWef(override.wef);
+      wefDates.add(normalizedWef);
       const runwayKey = override.icao + "|" + override.rwy;
 
       if (!activeOverrides[runwayKey]) {
@@ -62,9 +80,10 @@ const server = http.createServer((req, res) => {
       }
 
       // Select active version: highest WEF date <= today
-      if (override.wef <= today) {
-        if (!activeOverrides[runwayKey] || override.wef > activeOverrides[runwayKey].wef) {
+      if (normalizedWef <= today) {
+        if (!activeOverrides[runwayKey] || normalizedWef > activeOverrides[runwayKey]._wef) {
           activeOverrides[runwayKey] = override;
+          activeOverrides[runwayKey]._wef = normalizedWef; // Store normalized WEF for comparison
         }
       }
     }
@@ -86,7 +105,8 @@ const server = http.createServer((req, res) => {
     for (const key in activeOverrides) {
       if (activeOverrides[key]) {
         const override = activeOverrides[key];
-        result[override.icao + "|" + override.rwy] = override;
+        const cleaned = { icao: override.icao, rwy: override.rwy, pcn: override.pcn, wef: override.wef };
+        result[override.icao + "|" + override.rwy] = cleaned;
       }
     }
 
