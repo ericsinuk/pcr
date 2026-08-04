@@ -131,16 +131,54 @@ const server = http.createServer((req, res) => {
       airfields.forEach(a => { byIcao[a[0]] = a; });
 
       const overrides = JSON.parse(fs.readFileSync(OVERRIDES_FILE, "utf8"));
-      const applied = [], rejected = [];
+      const today = new Date().toISOString().split("T")[0];
+      const rejected = [];
+      const skippedIcaos = new Set();
+      const appliedIcaos = new Set();
 
-      function processRunwayUpdate(icao, rwyInput, pcn, wef, af, applied, rejected) {
+      // Helper to get current active PCN for a specific icao|rwy
+      function getCurrentActivePcn(icao, rwy) {
+        let active = null;
+        let activeWef = null;
+        for (const key in overrides) {
+          const override = overrides[key];
+          if (override.icao === icao && override.rwy === rwy) {
+            // Normalize WEF for comparison
+            let normalizedWef = override.wef;
+            if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedWef) === false) {
+              // Convert user-friendly format to ISO
+              const m = normalizedWef.match(/^(\d{1,2})([A-Za-z]{3})(\d{2})$/);
+              if (m) {
+                const months = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+                const day = String(m[1]).padStart(2, "0");
+                const month = String(months[m[2].toLowerCase()]).padStart(2, "0");
+                normalizedWef = "20" + m[3] + "-" + month + "-" + day;
+              }
+            }
+            // Select highest WEF <= today
+            if (normalizedWef <= today) {
+              if (!activeWef || normalizedWef > activeWef) {
+                active = override.pcn;
+                activeWef = normalizedWef;
+              }
+            }
+          }
+        }
+        return active;
+      }
+
+      function processRunwayUpdate(icao, rwyInput, pcn, wef, af, appliedIcaos, skippedIcaos, rejected) {
         // Handle paired runway format: "14L/32R" → apply to both "14L" and "32R"
         const rwyParts = rwyInput.split('/').map(s => s.trim());
-        let runwaysToUpdate = rwyParts;
+        let wasApplied = false;
 
-        // If input is paired (e.g., 14L/32R), apply to both directions
-        // If input is single (e.g., 14L), apply to that one
-        runwaysToUpdate.forEach(rwy => {
+        rwyParts.forEach(rwy => {
+          // Check if new PCN equals current active PCN — if so, skip
+          const currentPcn = getCurrentActivePcn(icao, rwy);
+          if (currentPcn === pcn) {
+            return; // Skip — no change from current
+          }
+
           let rwyExists = af[6].some(r => r[0] === rwy);
           // Auto-create missing runway with placeholder length/width (not used in calculations)
           if (!rwyExists) {
@@ -150,8 +188,16 @@ const server = http.createServer((req, res) => {
           // Versioned storage: icao|rwy|wef
           const key = icao + "|" + rwy + "|" + wef;
           overrides[key] = { icao, rwy, pcn, wef };
-          applied.push({ icao, rwy, pcn });
+          wasApplied = true;
         });
+
+        // If any runway was applied, add to appliedIcaos; otherwise if all were skipped, add to skippedIcaos
+        if (wasApplied) {
+          appliedIcaos.add(icao);
+        } else if (rwyParts.length > 0) {
+          // All runways in this update were skipped
+          skippedIcaos.add(icao);
+        }
       }
 
       const wef = String(data.wef || "").trim();
@@ -164,11 +210,26 @@ const server = http.createServer((req, res) => {
         if (!af) return rejected.push({ icao, rwy, pcn, reason: "unknown ICAO" });
         if (!PCN_RE.test(pcn)) return rejected.push({ icao, rwy, pcn, reason: "PCN format looks wrong (expect e.g. 82/F/C/W/T)" });
 
-        processRunwayUpdate(icao, rwy, pcn, wef, af, applied, rejected);
+        processRunwayUpdate(icao, rwy, pcn, wef, af, appliedIcaos, skippedIcaos, rejected);
       });
 
       fs.writeFileSync(OVERRIDES_FILE, JSON.stringify(overrides, null, 2));
-      return json(res, 200, { applied, rejected, wef });
+
+      // Categorize ICAO codes by cycle
+      const currentCycle = [];
+      const nextCycle = [];
+
+      for (const icao of appliedIcaos) {
+        if (wef <= today) {
+          currentCycle.push(icao);
+        } else {
+          nextCycle.push(icao);
+        }
+      }
+
+      const skipped = Array.from(skippedIcaos).sort();
+
+      return json(res, 200, { wef, currentCycle, nextCycle, skipped, rejected });
     });
     return;
   }
