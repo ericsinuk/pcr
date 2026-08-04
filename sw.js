@@ -1,4 +1,4 @@
-const CACHE = "pcr-pcn-v2.13";
+const CACHE = "pcr-pcn-v2.14";
 const ASSETS = ["./", "./index.html", "./app.js", "./airfields.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
@@ -15,6 +15,12 @@ self.addEventListener("activate", e => {
 });
 
 self.addEventListener("fetch", e => {
+  // Don't cache API responses — always fetch fresh data
+  if (e.request.url.includes("/pcr-api/")) {
+    e.respondWith(fetch(e.request, { cache: "no-cache" }));
+    return;
+  }
+
   e.respondWith(
     // cache:"no-cache" forces revalidation with the server (cheap 304s),
     // so a deploy is picked up on next load instead of heuristic HTTP caching
