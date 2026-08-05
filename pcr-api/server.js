@@ -46,7 +46,7 @@ const server = http.createServer((req, res) => {
   let pathname = url.pathname;
   // Handle both /update and /pcr-api/update (strip /pcr-api prefix if present)
   if (pathname.startsWith("/pcr-api/")) {
-    pathname = pathname.slice(9); // Remove "/pcr-api"
+    pathname = pathname.slice(8); // Remove "/pcr-api" (8 chars), keep the "/"
   }
 
   if (req.method === "GET" && pathname === "/overrides") {
