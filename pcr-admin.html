@@ -48,6 +48,11 @@
   .result.ok{background:var(--green-bg);color:var(--green-txt)}
   .result.bad{background:var(--red-bg);color:var(--red-txt)}
   .hint{font-size:10px;color:var(--text3);line-height:1.5}
+  .week-header{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em}
+  .entry-list{display:flex;flex-direction:column;gap:8px}
+  .entry-card{display:flex;flex-direction:column;gap:6px;padding-top:10px;border-top:0.5px solid var(--border)}
+  .entry-card:first-child{padding-top:0;border-top:none}
+  .entry-time{font-size:10px;color:var(--text3)}
   .ac-list{position:absolute;top:100%;left:0;right:0;z-index:30;display:none;background:var(--bg);
     border:0.5px solid var(--border2);border-radius:var(--radius);box-shadow:0 6px 20px rgba(0,0,0,.12);
     max-height:220px;overflow-y:auto;margin-top:2px}
@@ -88,7 +93,8 @@
           <textarea id="bulkPaste" placeholder="EYVI,01,82/F/C/W/T&#10;EYVI,19,82/F/C/W/T&#10;AYPY,14L/32R,70/F/C/X/U"></textarea>
         </div>
         <button class="btn btn-primary" id="submitBulk">Submit Batch</button>
-        <div class="hint">All updates in this batch will be tagged with the WEF date. Supports paired runway format: <code>14L/32R</code> applies to both 14L and 32R</div>
+        <div class="hint">All updates in this batch will be tagged with the WEF date. Supports paired runway format: <code>14L/32R</code> applies to both 14L and 32R. Results below accumulate across submissions until you enter a different WEF date.</div>
+        <div id="submitStatus"></div>
         <div id="resultBulk"></div>
       </div>
     </div>
@@ -104,16 +110,53 @@
 
     let selectedIcao = null;
 
-    function showResult(el, ok, text) {
+    const LOG_KEY = "pcrAdminLog";
+
+    function loadLog() {
+      try { return JSON.parse(localStorage.getItem(LOG_KEY)) || null; } catch { return null; }
+    }
+
+    function saveLog(log) {
+      localStorage.setItem(LOG_KEY, JSON.stringify(log));
+    }
+
+    function renderEntry(e) {
+      let inner = "<strong>" + e.time + "</strong><br>";
+      if (e.currentCycle.length) inner += "Current Cycle: " + e.currentCycle.slice().sort().join(", ") + "<br>";
+      if (e.nextCycle.length) inner += "Next Cycle: " + e.nextCycle.slice().sort().join(", ");
+      if (!e.currentCycle.length && !e.nextCycle.length) inner += "<em>No changes applied.</em>";
+      let html = "<div class='entry-card'><div class='result ok'>" + inner + "</div>";
+      if (e.skipped.length) {
+        html += "<div class='result bad' style='margin-top:6px'>Skipped " + e.skipped.length + " (no change from current): " +
+          e.skipped.slice().sort().join(", ") + "</div>";
+      }
+      if (e.rejected.length) {
+        html += "<div class='result bad' style='margin-top:6px'>Rejected " + e.rejected.length + ": " +
+          e.rejected.map(r => r.icao + " " + r.rwy + " (" + r.reason + ")").join("; ") + "</div>";
+      }
+      html += "</div>";
+      return html;
+    }
+
+    function renderLog(log, resultEl) {
+      if (!log || !log.entries.length) { resultEl.innerHTML = ""; return; }
+      let html = "<div class='week-header'>WEF " + log.wef + " — " + log.entries.length +
+        " submission" + (log.entries.length > 1 ? "s" : "") + " this cycle</div><div class='entry-list'>";
+      for (let i = log.entries.length - 1; i >= 0; i--) html += renderEntry(log.entries[i]);
+      html += "</div>";
+      resultEl.innerHTML = html;
+    }
+
+    function showStatus(el, ok, text) {
       el.innerHTML = "<div class='result " + (ok ? "ok" : "bad") + "'>" + text + "</div>";
     }
 
-    function submitUpdates(updates, wef, resultEl, btn) {
+    function submitUpdates(updates, wef, statusEl, logEl, btn) {
       const passcode = $("passcode").value;
-      if (!passcode) { showResult(resultEl, false, "Enter the passcode first."); return; }
-      if (!updates.length) { showResult(resultEl, false, "Nothing to submit."); return; }
-      if (!wef) { showResult(resultEl, false, "Enter the WEF date (e.g. 2026-08-13)."); return; }
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(wef)) { showResult(resultEl, false, "Invalid WEF date format. Use YYYY-MM-DD (e.g. 2026-08-13)"); return; }
+      if (!passcode) { showStatus(statusEl, false, "Enter the passcode first."); return; }
+      if (!updates.length) { showStatus(statusEl, false, "Nothing to submit."); return; }
+      if (!wef) { showStatus(statusEl, false, "Enter the WEF date (e.g. 2026-08-13)."); return; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(wef)) { showStatus(statusEl, false, "Invalid WEF date format. Use YYYY-MM-DD (e.g. 2026-08-13)"); return; }
       btn.disabled = true;
       fetch(PCR_API_BASE + "/update", {
         method: "POST",
@@ -122,32 +165,30 @@
       })
         .then(r => r.json().then(data => ({ status: r.status, data })))
         .then(({ status, data }) => {
-          if (status === 401) return showResult(resultEl, false, "Wrong passcode.");
-          if (status !== 200) return showResult(resultEl, false, "Error: " + (data.error || status));
-          let html = "<div class='result ok'><strong>WEF " + data.wef + ":</strong><br>";
-          if (data.currentCycle && data.currentCycle.length) {
-            html += "Current Cycle: " + data.currentCycle.sort().join(", ") + "<br>";
-          }
-          if (data.nextCycle && data.nextCycle.length) {
-            html += "Next Cycle: " + data.nextCycle.sort().join(", ");
-          }
-          html += "</div>";
-          if (data.skipped && data.skipped.length) {
-            html += "<div class='result bad' style='margin-top:6px'>Skipped " + data.skipped.length + " (no change from current): " +
-              data.skipped.sort().join(", ") + "</div>";
-          }
-          if (data.rejected && data.rejected.length) {
-            html += "<div class='result bad' style='margin-top:6px'>Rejected " + data.rejected.length + ": " +
-              data.rejected.map(r => r.icao + " " + r.rwy + " (" + r.reason + ")").join("; ") + "</div>";
-          }
-          resultEl.innerHTML = html || "<div class='result bad'>Nothing applied.</div>";
+          if (status === 401) return showStatus(statusEl, false, "Wrong passcode.");
+          if (status !== 200) return showStatus(statusEl, false, "Error: " + (data.error || status));
+          statusEl.innerHTML = "";
+          let log = loadLog();
+          if (!log || log.wef !== data.wef) log = { wef: data.wef, entries: [] };
+          log.entries.push({
+            time: new Date().toLocaleString(),
+            currentCycle: data.currentCycle || [],
+            nextCycle: data.nextCycle || [],
+            skipped: data.skipped || [],
+            rejected: data.rejected || [],
+          });
+          saveLog(log);
+          renderLog(log, logEl);
         })
-        .catch(() => showResult(resultEl, false, "Couldn't reach the update server."))
+        .catch(() => showStatus(statusEl, false, "Couldn't reach the update server."))
         .finally(() => { btn.disabled = false; });
     }
 
+    renderLog(loadLog(), $("resultBulk"));
+
     $("submitBulk").addEventListener("click", () => {
-      const resultEl = $("resultBulk");
+      const statusEl = $("submitStatus");
+      const logEl = $("resultBulk");
       const wef = $("wefDate").value.trim();
       const lines = $("bulkPaste").value.split("\n").map(l => l.trim()).filter(Boolean);
       const updates = [];
@@ -158,10 +199,10 @@
         updates.push({ icao: parts[0], rwy: parts[1], pcn: parts[2] });
       });
       if (badLines.length) {
-        showResult(resultEl, false, badLines.length + " line(s) not in ICAO,RWY,PCN format: " + badLines.join(" | "));
+        showStatus(statusEl, false, badLines.length + " line(s) not in ICAO,RWY,PCN format: " + badLines.join(" | "));
         return;
       }
-      submitUpdates(updates, wef, resultEl, $("submitBulk"));
+      submitUpdates(updates, wef, statusEl, logEl, $("submitBulk"));
     });
   </script>
 </body>
