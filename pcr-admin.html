@@ -110,18 +110,15 @@
 
     let selectedIcao = null;
 
-    const LOG_KEY = "pcrAdminLog";
-
-    function loadLog() {
-      try { return JSON.parse(localStorage.getItem(LOG_KEY)) || null; } catch { return null; }
-    }
-
-    function saveLog(log) {
-      localStorage.setItem(LOG_KEY, JSON.stringify(log));
+    function fetchLog(resultEl) {
+      fetch(PCR_API_BASE + "/log")
+        .then(r => r.json())
+        .then(log => renderLog(log, resultEl))
+        .catch(() => {});
     }
 
     function renderEntry(e) {
-      let inner = "<strong>" + e.time + "</strong><br>";
+      let inner = "<strong>" + new Date(e.time).toLocaleString() + "</strong><br>";
       if (e.currentCycle.length) inner += "Current Cycle: " + e.currentCycle.slice().sort().join(", ") + "<br>";
       if (e.nextCycle.length) inner += "Next Cycle: " + e.nextCycle.slice().sort().join(", ");
       if (!e.currentCycle.length && !e.nextCycle.length) inner += "<em>No changes applied.</em>";
@@ -168,23 +165,13 @@
           if (status === 401) return showStatus(statusEl, false, "Wrong passcode.");
           if (status !== 200) return showStatus(statusEl, false, "Error: " + (data.error || status));
           statusEl.innerHTML = "";
-          let log = loadLog();
-          if (!log || log.wef !== data.wef) log = { wef: data.wef, entries: [] };
-          log.entries.push({
-            time: new Date().toLocaleString(),
-            currentCycle: data.currentCycle || [],
-            nextCycle: data.nextCycle || [],
-            skipped: data.skipped || [],
-            rejected: data.rejected || [],
-          });
-          saveLog(log);
-          renderLog(log, logEl);
+          fetchLog(logEl);
         })
         .catch(() => showStatus(statusEl, false, "Couldn't reach the update server."))
         .finally(() => { btn.disabled = false; });
     }
 
-    renderLog(loadLog(), $("resultBulk"));
+    fetchLog($("resultBulk"));
 
     $("submitBulk").addEventListener("click", () => {
       const statusEl = $("submitStatus");

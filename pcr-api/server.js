@@ -12,9 +12,11 @@ const PASSCODE = process.env.PCR_UPDATE_PASSCODE || "changeme";
 const PORT = process.env.PORT || 3007;
 
 const OVERRIDES_FILE = path.join(DATA_DIR, "overrides.json");
+const SUBMIT_LOG_FILE = path.join(DATA_DIR, "submission-log.json");
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(OVERRIDES_FILE)) fs.writeFileSync(OVERRIDES_FILE, "{}");
+if (!fs.existsSync(SUBMIT_LOG_FILE)) fs.writeFileSync(SUBMIT_LOG_FILE, JSON.stringify({ wef: null, entries: [] }));
 
 function loadAirfields() {
   const src = fs.readFileSync(AIRFIELDS_JS, "utf8");
@@ -120,6 +122,11 @@ const server = http.createServer((req, res) => {
 
   if (req.method === "GET" && pathname === "/health") {
     return json(res, 200, { ok: true });
+  }
+
+  if (req.method === "GET" && pathname === "/log") {
+    const log = JSON.parse(fs.readFileSync(SUBMIT_LOG_FILE, "utf8"));
+    return json(res, 200, log);
   }
 
   if (req.method === "POST" && pathname === "/update") {
@@ -233,6 +240,12 @@ const server = http.createServer((req, res) => {
       }
 
       const skipped = Array.from(skippedIcaos).sort();
+
+      // Persist to the shared submission log — reset when the WEF cycle changes
+      let log = JSON.parse(fs.readFileSync(SUBMIT_LOG_FILE, "utf8"));
+      if (log.wef !== wef) log = { wef, entries: [] };
+      log.entries.push({ time: new Date().toISOString(), currentCycle, nextCycle, skipped, rejected });
+      fs.writeFileSync(SUBMIT_LOG_FILE, JSON.stringify(log, null, 2));
 
       return json(res, 200, { wef, currentCycle, nextCycle, skipped, rejected });
     });
