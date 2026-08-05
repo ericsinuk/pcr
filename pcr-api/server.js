@@ -43,8 +43,13 @@ const server = http.createServer((req, res) => {
   if (req.method === "OPTIONS") { res.writeHead(204); return res.end(); }
 
   const url = new URL(req.url, "http://x");
+  let pathname = url.pathname;
+  // Handle both /update and /pcr-api/update (strip /pcr-api prefix if present)
+  if (pathname.startsWith("/pcr-api/")) {
+    pathname = pathname.slice(9); // Remove "/pcr-api"
+  }
 
-  if (req.method === "GET" && url.pathname === "/overrides") {
+  if (req.method === "GET" && pathname === "/overrides") {
     const allOverrides = JSON.parse(fs.readFileSync(OVERRIDES_FILE, "utf8"));
     const today = new Date().toISOString().split("T")[0];
 
@@ -113,11 +118,11 @@ const server = http.createServer((req, res) => {
     return json(res, 200, { overrides: result, currentWef, nextWef });
   }
 
-  if (req.method === "GET" && url.pathname === "/health") {
+  if (req.method === "GET" && pathname === "/health") {
     return json(res, 200, { ok: true });
   }
 
-  if (req.method === "POST" && url.pathname === "/update") {
+  if (req.method === "POST" && pathname === "/update") {
     let body = "";
     req.on("data", c => { body += c; if (body.length > 200000) req.destroy(); });
     req.on("end", () => {
