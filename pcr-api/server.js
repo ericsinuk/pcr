@@ -9,7 +9,7 @@ const path = require("path");
 const DATA_DIR = process.env.PCR_DATA_DIR || "/home/Wilson/pcr-data";
 const AIRFIELDS_JS = process.env.PCR_AIRFIELDS_JS || "/var/www/html/pcr/airfields.js";
 const PASSCODE = process.env.PCR_UPDATE_PASSCODE || "changeme";
-const PORT = process.env.PORT || 3006;
+const PORT = process.env.PORT || 3007;
 
 const OVERRIDES_FILE = path.join(DATA_DIR, "overrides.json");
 
