@@ -1,5 +1,5 @@
-const APP_VERSION = "2.13";
-const APP_VERSION_DATE = "2026-07-31";
+const APP_VERSION = "2.14";
+const APP_VERSION_DATE = "2026-08-05";
 // NOTE: bump APP_VERSION on every update; keep sw.js CACHE name in sync ("pcr-pcn-v<ver>").
 
 /* ================================================================
@@ -208,9 +208,7 @@ function fetchOverrides() {
       OVERRIDES = (data && data.overrides) ? data.overrides : (data || {});
       if (status) {
         const currentWef = data && data.currentWef ? data.currentWef : "unknown";
-        const nextWef = data && data.nextWef ? data.nextWef : null;
-        const wefStr = nextWef ? "Live (" + currentWef + ") → Scheduled (" + nextWef + ")" : "Live (" + currentWef + ")";
-        status.textContent = "Synced data: " + wefStr;
+        status.textContent = "Synced data: Live (" + currentWef + ")";
         status.className = "sync-status ok";
       }
       renderChk();

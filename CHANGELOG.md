@@ -1,5 +1,24 @@
 # PCN PCR Calculator — Changelog
 
+## Ver 2.14 — 2026-08-05
+- Admin upload tool (`pcr-admin.html`): WEF date field now takes ISO format
+  (`YYYY-MM-DD`) directly, matching the rest of the app — no more DDMmmYY
+  conversion.
+- Admin backend: updates that don't actually change a runway's active PCN
+  are now skipped (deduplication) instead of writing a redundant version.
+- Admin result display now shows which ICAO codes changed, split into
+  Current Cycle (WEF today or earlier) vs Next Cycle (future WEF), plus
+  Skipped (no-op) and Rejected (bad ICAO/PCN format) breakdowns.
+- Admin page now keeps a running log of every submission for the active WEF
+  cycle instead of overwriting it on each submit — stored server-side
+  (`pcr-api`'s `/log` endpoint) so the history is the same no matter which
+  browser or device the admin uses. The log resets automatically when a new
+  WEF date is submitted.
+- Check tab: sync status text simplified to just show the live data's WEF
+  date (`Synced data: Live (YYYY-MM-DD)`) — dropped the "→ Scheduled" note
+  about the next pending cycle, since it added noise without being
+  actionable for regular users.
+
 ## Ver 2.13 — 2026-07-31
 - Live PCN/PCR runway updates: new tiny backend (pcr-api) lets updated
   runway pavement numbers be pushed out without a full app redeploy.
