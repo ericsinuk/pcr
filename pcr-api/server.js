@@ -13,10 +13,12 @@ const PORT = process.env.PORT || 3007;
 
 const OVERRIDES_FILE = path.join(DATA_DIR, "overrides.json");
 const SUBMIT_LOG_FILE = path.join(DATA_DIR, "submission-log.json");
+const SYNC_STATUS_FILE = path.join(DATA_DIR, "sync-status.json");
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(OVERRIDES_FILE)) fs.writeFileSync(OVERRIDES_FILE, "{}");
 if (!fs.existsSync(SUBMIT_LOG_FILE)) fs.writeFileSync(SUBMIT_LOG_FILE, JSON.stringify({ wef: null, entries: [] }));
+if (!fs.existsSync(SYNC_STATUS_FILE)) fs.writeFileSync(SYNC_STATUS_FILE, JSON.stringify({ lastPublished: null }));
 
 function loadAirfields() {
   const src = fs.readFileSync(AIRFIELDS_JS, "utf8");
@@ -117,7 +119,8 @@ const server = http.createServer((req, res) => {
       }
     }
 
-    return json(res, 200, { overrides: result, currentWef, nextWef });
+    const syncStatus = JSON.parse(fs.readFileSync(SYNC_STATUS_FILE, "utf8"));
+    return json(res, 200, { overrides: result, currentWef, nextWef, lastPublished: syncStatus.lastPublished });
   }
 
   if (req.method === "GET" && pathname === "/health") {
@@ -246,6 +249,15 @@ const server = http.createServer((req, res) => {
       if (log.wef !== wef) log = { wef, entries: [] };
       log.entries.push({ time: new Date().toISOString(), currentCycle, nextCycle, skipped, rejected });
       fs.writeFileSync(SUBMIT_LOG_FILE, JSON.stringify(log, null, 2));
+
+      // "Last published" tracks when the admin most recently pushed a REAL
+      // change (not a no-op/dedup skip or a fully-rejected batch), regardless
+      // of that batch's WEF. This is deliberately independent of currentWef —
+      // it's a "you're looking at my latest publish" freshness marker for
+      // crew to cross-check against a FlightBox announcement, not a WEF label.
+      if (appliedIcaos.size > 0) {
+        fs.writeFileSync(SYNC_STATUS_FILE, JSON.stringify({ lastPublished: today }));
+      }
 
       return json(res, 200, { wef, currentCycle, nextCycle, skipped, rejected });
     });

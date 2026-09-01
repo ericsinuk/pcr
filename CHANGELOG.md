@@ -1,5 +1,20 @@
 # PCN PCR Calculator — Changelog
 
+## Ver 2.15 — 2026-09-01
+- Check tab's "Synced data: Live (date)" no longer shows the WEF of the
+  currently-active pavement-data cycle. It now shows the calendar date of
+  the admin's most recent *real* batch publish (any WEF, including
+  future-scheduled ones) — a "last published" freshness marker, decoupled
+  from which WEF cycle is actually governing the numbers right now. This
+  lets an admin publish a batch (even one scheduled for a future WEF),
+  announce the resulting date via a separate channel (e.g. FlightBox), and
+  have crew confirm they're on the latest published state by matching what
+  they see on the Check tab. Only updates on submissions that actually
+  apply at least one change — a fully skipped (no-op/dedup) or fully
+  rejected (bad ICAO/format) batch does not bump this date. The WEF-based
+  activation logic for the pavement numbers themselves is unchanged — a
+  future-dated batch still stays pending until its WEF arrives.
+
 ## Ver 2.14 — 2026-08-05
 - Admin upload tool (`pcr-admin.html`): WEF date field now takes ISO format
   (`YYYY-MM-DD`) directly, matching the rest of the app — no more DDMmmYY

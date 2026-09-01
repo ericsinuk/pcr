@@ -1,5 +1,5 @@
-const APP_VERSION = "2.14";
-const APP_VERSION_DATE = "2026-08-05";
+const APP_VERSION = "2.15";
+const APP_VERSION_DATE = "2026-09-01";
 // NOTE: bump APP_VERSION on every update; keep sw.js CACHE name in sync ("pcr-pcn-v<ver>").
 
 /* ================================================================
@@ -207,8 +207,13 @@ function fetchOverrides() {
     .then(data => {
       OVERRIDES = (data && data.overrides) ? data.overrides : (data || {});
       if (status) {
-        const currentWef = data && data.currentWef ? data.currentWef : "unknown";
-        status.textContent = "Synced data: Live (" + currentWef + ")";
+        // lastPublished = date of the admin's most recent real publish (any WEF),
+        // for crew to cross-check against a FlightBox announcement. Falls back
+        // to currentWef only if no publish has ever been tracked (e.g. data
+        // seeded before this field existed).
+        const liveDate = (data && data.lastPublished) ? data.lastPublished
+          : (data && data.currentWef ? data.currentWef : "unknown");
+        status.textContent = "Synced data: Live (" + liveDate + ")";
         status.className = "sync-status ok";
       }
       renderChk();
