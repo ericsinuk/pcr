@@ -67,7 +67,7 @@
     border:0.5px solid var(--border2);background:var(--bg);color:var(--text2);cursor:pointer;font-family:var(--font)}
   .tab-btn.active{background:var(--text);color:var(--bg);border-color:var(--text)}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .rwy-row{display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:6px;align-items:center}
+  .rwy-row{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center}
   .rwy-row input{font-size:13px;padding:7px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);
     background:var(--bg);color:var(--text);outline:none;font-family:var(--font);width:100%}
   .rwy-row input:focus{border-color:var(--info)}
@@ -308,8 +308,7 @@
     let editingIcao = null; // null = adding new; otherwise the ORIGINAL icao being edited
 
     function overlayRecordToTuple(rec) {
-      return [rec.icao, rec.iata, rec.name, "", "", rec.system,
-        rec.runways.map(r => [r.rwy, r.lengthFt, r.widthFt, null])];
+      return [rec.icao, rec.iata, rec.name, rec.system, rec.runways.map(r => [r.rwy, null])];
     }
 
     function rebuildEffectiveAirfieldsAdmin(airfieldEdits, airfieldDeleted) {
@@ -339,7 +338,7 @@
 
       let html = "<thead><tr><th>ICAO</th><th>IATA</th><th>Name</th><th>Sys</th><th>RWYs</th><th></th></tr></thead><tbody>";
       rows.forEach(a => {
-        const [icao, iata, name, , , system, runways] = a;
+        const [icao, iata, name, system, runways] = a;
         html += "<tr><td><b>" + icao + "</b></td><td>" + (iata || "—") + "</td><td>" + name +
           "</td><td>" + (system || "—") + "</td><td>" + runways.length + "</td><td>" +
           "<div class='btn-row'>" +
@@ -365,8 +364,6 @@
       row.className = "rwy-row";
       row.innerHTML =
         "<input class='rwy-designator' placeholder='e.g. 09L' value='" + ((prefill && prefill.rwy) || "") + "'>" +
-        "<input class='rwy-length' type='number' placeholder='Length ft' value='" + ((prefill && prefill.lengthFt) || "") + "'>" +
-        "<input class='rwy-width' type='number' placeholder='Width ft' value='" + ((prefill && prefill.widthFt) || "") + "'>" +
         "<button class='rwy-remove' type='button'>&times;</button>";
       row.querySelector(".rwy-remove").addEventListener("click", () => row.remove());
       $("rwyRows").appendChild(row);
@@ -377,8 +374,6 @@
     function collectRunwaysFromForm() {
       return [...$("rwyRows").querySelectorAll(".rwy-row")].map(row => ({
         rwy: row.querySelector(".rwy-designator").value.trim(),
-        lengthFt: Number(row.querySelector(".rwy-length").value),
-        widthFt: Number(row.querySelector(".rwy-width").value),
       }));
     }
 
@@ -399,7 +394,7 @@
     function startEdit(icao) {
       const af = EFFECTIVE_AIRFIELDS_ADMIN.find(a => a[0] === icao);
       if (!af) return;
-      const [afIcao, iata, name, , , system, runways] = af;
+      const [afIcao, iata, name, system, runways] = af;
       editingIcao = afIcao;
       $("afFormHead").textContent = "Edit Airfield — " + afIcao;
       $("afIcao").value = afIcao;
@@ -407,7 +402,7 @@
       $("afName").value = name;
       $("afSystem").value = system === "PCN" ? "PCN" : "PCR";
       $("rwyRows").innerHTML = "";
-      runways.forEach(r => addRunwayRow({ rwy: r[0], lengthFt: r[1], widthFt: r[2] }));
+      runways.forEach(r => addRunwayRow({ rwy: r[0] }));
       $("queueStatus").innerHTML = "";
       window.scrollTo({ top: $("afFormHead").getBoundingClientRect().top + window.scrollY - 12, behavior: "smooth" });
     }

@@ -72,8 +72,8 @@ function effectiveRecord(icao, byIcao, overlay) {
   const af = byIcao[icao];
   if (!af) return null;
   return {
-    icao: af[0], iata: af[1], name: af[2], system: af[5],
-    runways: af[6].map(r => ({ rwy: r[0], lengthFt: r[1], widthFt: r[2] })),
+    icao: af[0], iata: af[1], name: af[2], system: af[3],
+    runways: af[4].map(r => ({ rwy: r[0] })),
   };
 }
 
@@ -94,14 +94,10 @@ function validateAirfieldRecord(data) {
   const seen = new Set();
   for (const r of runwaysIn) {
     const rwy = String((r && r.rwy) || "").trim().toUpperCase();
-    const lengthFt = Number(r && r.lengthFt);
-    const widthFt = Number(r && r.widthFt);
     if (!rwy) return { error: "Every runway needs a designator" };
     if (seen.has(rwy)) return { error: "Duplicate runway designator: " + rwy };
     seen.add(rwy);
-    if (!Number.isFinite(lengthFt) || lengthFt <= 0) return { error: "Runway " + rwy + " needs a valid length" };
-    if (!Number.isFinite(widthFt) || widthFt <= 0) return { error: "Runway " + rwy + " needs a valid width" };
-    runways.push({ rwy, lengthFt, widthFt });
+    runways.push({ rwy });
   }
 
   return { record: { icao, iata, name, system, runways } };

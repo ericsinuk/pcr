@@ -206,15 +206,13 @@ let OVERRIDES = {};
 let EFFECTIVE_AIRFIELDS = AIRFIELDS;
 
 function overlayRecordToTuple(rec) {
-  // Admin overlay records are plain objects ({icao,iata,name,system,runways:
-  // [{rwy,lengthFt,widthFt}]}) — convert to the same positional-tuple shape
-  // as the baked-in AIRFIELDS rows so all existing rendering code (which
-  // destructures [icao,iata,name,ops,status,system,runways]) works unchanged.
-  // opsType/status are DHL-internal Excel-import workflow labels the admin
-  // tool never sets — left blank for overlay-managed airfields.
+  // Admin overlay records are plain objects ({icao,iata,name,system,
+  // runways:[{rwy}]}) — convert to the same positional-tuple shape as the
+  // baked-in AIRFIELDS rows so all existing rendering code (which
+  // destructures [icao,iata,name,system,runways]) works unchanged.
   return [
-    rec.icao, rec.iata, rec.name, "", "", rec.system,
-    rec.runways.map(r => [r.rwy, r.lengthFt, r.widthFt, null]),
+    rec.icao, rec.iata, rec.name, rec.system,
+    rec.runways.map(r => [r.rwy, null]),
   ];
 }
 
@@ -351,7 +349,7 @@ function renderChk() {
   $("afEmpty").style.display = af ? "none" : "";
   if (!af) return;
 
-  const [icao, iata, name, ops, status, system, runways] = af;
+  const [icao, iata, name, system, runways] = af;
 
   $("afHead").innerHTML =
     '<span class="af-name">' + name + '</span>' +
@@ -368,7 +366,7 @@ function renderChk() {
   const bestDelta = [-Infinity, -Infinity, -Infinity];
   let anyCalc = false;
 
-  runways.forEach(([rwy, len, w, pcnStr]) => {
+  runways.forEach(([rwy, pcnStr]) => {
     const ov = OVERRIDES[icao + "|" + rwy];
     const liveStr = ov ? ov.pcn : pcnStr;
     const pcnCell = ov
