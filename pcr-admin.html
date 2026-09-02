@@ -61,6 +61,43 @@
   .ac-item:hover{background:#E6F1FB}
   .ac-item b{min-width:42px}
   .ac-item span{color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .tabbar{display:flex;gap:6px}
+  .tab-btn{flex:1;font-size:12px;font-weight:600;padding:9px 10px;border-radius:var(--radius);
+    border:0.5px solid var(--border2);background:var(--bg);color:var(--text2);cursor:pointer;font-family:var(--font)}
+  .tab-btn.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .rwy-row{display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:6px;align-items:center}
+  .rwy-row input{font-size:13px;padding:7px 8px;border:0.5px solid var(--border2);border-radius:var(--radius);
+    background:var(--bg);color:var(--text);outline:none;font-family:var(--font);width:100%}
+  .rwy-row input:focus{border-color:var(--info)}
+  .rwy-remove{width:26px;height:26px;border-radius:var(--radius);border:0.5px solid var(--border2);
+    background:var(--bg);color:var(--red-txt);cursor:pointer;font-size:14px;line-height:1;font-family:var(--font)}
+  .rwy-remove:hover{background:var(--red-bg)}
+  .btn-row{display:flex;gap:8px}
+  .btn-row .btn{width:auto;flex:1}
+  .af-search{font-size:13px;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--radius);
+    background:var(--bg);color:var(--text);outline:none;font-family:var(--font);width:100%}
+  .af-table-wrap{max-height:420px;overflow-y:auto;border:0.5px solid var(--border);border-radius:var(--radius)}
+  .af-table{width:100%;border-collapse:collapse;font-size:12px}
+  .af-table th{position:sticky;top:0;background:var(--bg2);text-align:left;padding:6px 8px;
+    font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;border-bottom:0.5px solid var(--border)}
+  .af-table td{padding:6px 8px;border-bottom:0.5px solid var(--border);vertical-align:middle}
+  .af-table tr:last-child td{border-bottom:none}
+  .af-table .mini-btn{font-size:10px;font-weight:600;padding:4px 8px;border-radius:4px;border:0.5px solid var(--border2);
+    background:var(--bg);color:var(--text);cursor:pointer;font-family:var(--font);white-space:nowrap}
+  .af-table .mini-btn.danger{color:var(--red-txt)}
+  .af-table .mini-btn:hover{background:var(--bg2)}
+  .pending-item{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:var(--radius);
+    background:var(--bg2);font-size:12px}
+  .pending-item .ptype{font-weight:700;text-transform:uppercase;font-size:9px;letter-spacing:.04em}
+  .ptype.add{color:var(--green-txt)}
+  .ptype.edit{color:var(--info)}
+  .ptype.delete{color:var(--red-txt)}
+  .pending-item .prow{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .pending-remove{font-size:10px;font-weight:600;padding:3px 7px;border-radius:4px;border:0.5px solid var(--border2);
+    background:var(--bg);color:var(--text2);cursor:pointer;font-family:var(--font)}
+  .pending-remove:hover{background:var(--red-bg);color:var(--red-txt)}
 </style>
 </head>
 <body>
@@ -81,22 +118,79 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-head">Batch Update</div>
-      <div class="card-body">
-        <div class="field">
-          <label for="wefDate">WEF Date (With Effect From)</label>
-          <input type="text" id="wefDate" placeholder="e.g. 2026-08-13">
+    <div class="tabbar">
+      <button class="tab-btn active" id="tabBatchBtn" type="button">Batch Update</button>
+      <button class="tab-btn" id="tabAirfieldsBtn" type="button">Manage Airfields</button>
+    </div>
+
+    <div id="pageBatch">
+      <div class="card">
+        <div class="card-head">Batch Update</div>
+        <div class="card-body">
+          <div class="field">
+            <label for="wefDate">WEF Date (With Effect From)</label>
+            <input type="text" id="wefDate" placeholder="e.g. 2026-08-13">
+          </div>
+          <div class="field">
+            <label for="bulkPaste">Paste rows: ICAO,RWY,PCN — one per line</label>
+            <textarea id="bulkPaste" placeholder="EYVI,01,82/F/C/W/T&#10;EYVI,19,82/F/C/W/T&#10;AYPY,14L/32R,70/F/C/X/U"></textarea>
+          </div>
+          <button class="btn btn-primary" id="submitBulk">Submit Batch</button>
+          <div class="hint">All updates in this batch will be tagged with the WEF date. Supports paired runway format: <code>14L/32R</code> applies to both 14L and 32R. Results below accumulate across submissions until you enter a different WEF date.</div>
+          <div id="submitStatus"></div>
+          <div id="resultBulk"></div>
         </div>
-        <div class="field">
-          <label for="bulkPaste">Paste rows: ICAO,RWY,PCN — one per line</label>
-          <textarea id="bulkPaste" placeholder="EYVI,01,82/F/C/W/T&#10;EYVI,19,82/F/C/W/T&#10;AYPY,14L/32R,70/F/C/X/U"></textarea>
-        </div>
-        <button class="btn btn-primary" id="submitBulk">Submit Batch</button>
-        <div class="hint">All updates in this batch will be tagged with the WEF date. Supports paired runway format: <code>14L/32R</code> applies to both 14L and 32R. Results below accumulate across submissions until you enter a different WEF date.</div>
-        <div id="submitStatus"></div>
-        <div id="resultBulk"></div>
       </div>
+    </div>
+
+    <div id="pageAirfields" style="display:none">
+
+      <div class="card" id="pendingCard" style="display:none">
+        <div class="card-head">Pending Changes</div>
+        <div class="card-body">
+          <div id="pendingList" class="entry-list"></div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="publishBtn" type="button">Publish All</button>
+            <button class="btn" id="cancelPendingBtn" type="button">Cancel All</button>
+          </div>
+          <div id="publishStatus"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head" id="afFormHead">Add Airfield</div>
+        <div class="card-body">
+          <div class="row2">
+            <div class="field"><label for="afIcao">ICAO</label><input id="afIcao" placeholder="e.g. EGLL"></div>
+            <div class="field"><label for="afIata">IATA</label><input id="afIata" placeholder="e.g. LHR"></div>
+          </div>
+          <div class="field"><label for="afName">Name</label><input id="afName" placeholder="e.g. London Heathrow"></div>
+          <div class="field">
+            <label for="afSystem">System</label>
+            <select id="afSystem"><option value="PCR">PCR</option><option value="PCN">PCN</option></select>
+          </div>
+          <div class="field">
+            <label>Runways</label>
+            <div id="rwyRows"></div>
+            <button class="btn" id="addRwyRow" type="button">+ Add Runway</button>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="queueBtn" type="button">Queue Change</button>
+            <button class="btn" id="clearFormBtn" type="button">Clear Form</button>
+          </div>
+          <div id="queueStatus"></div>
+          <div class="hint">No PCN/PCR value here — enter that later via the Batch Update tab once the airfield/runway exists. Changes here are staged as Pending until you Publish.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">All Airfields</div>
+        <div class="card-body">
+          <input class="af-search" id="afSearch" placeholder="Search ICAO / IATA / name…">
+          <div class="af-table-wrap"><table class="af-table" id="afTable"></table></div>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -191,6 +285,260 @@
       }
       submitUpdates(updates, wef, statusEl, logEl, $("submitBulk"));
     });
+
+    /* ── Tab switcher ── */
+    $("tabBatchBtn").addEventListener("click", () => {
+      $("tabBatchBtn").classList.add("active");
+      $("tabAirfieldsBtn").classList.remove("active");
+      $("pageBatch").style.display = "";
+      $("pageAirfields").style.display = "none";
+    });
+    $("tabAirfieldsBtn").addEventListener("click", () => {
+      $("tabAirfieldsBtn").classList.add("active");
+      $("tabBatchBtn").classList.remove("active");
+      $("pageBatch").style.display = "none";
+      $("pageAirfields").style.display = "";
+    });
+
+    /* ── Manage Airfields ── */
+    // EFFECTIVE_AIRFIELDS_ADMIN = baked-in AIRFIELDS with the live admin
+    // overlay applied (same merge logic as the main app's Check tab), so
+    // this table reflects reality even before a redeploy.
+    let EFFECTIVE_AIRFIELDS_ADMIN = AIRFIELDS;
+    let editingIcao = null; // null = adding new; otherwise the ORIGINAL icao being edited
+
+    function overlayRecordToTuple(rec) {
+      return [rec.icao, rec.iata, rec.name, "", "", rec.system,
+        rec.runways.map(r => [r.rwy, r.lengthFt, r.widthFt, null])];
+    }
+
+    function rebuildEffectiveAirfieldsAdmin(airfieldEdits, airfieldDeleted) {
+      const edits = airfieldEdits || {};
+      const deleted = new Set(airfieldDeleted || []);
+      const edited = new Set(Object.keys(edits));
+      const base = AIRFIELDS.filter(a => !deleted.has(a[0]) && !edited.has(a[0]));
+      EFFECTIVE_AIRFIELDS_ADMIN = base.concat(Object.values(edits).map(overlayRecordToTuple));
+    }
+
+    function fetchOverlay() {
+      return fetch(PCR_API_BASE + "/overrides", { cache: "no-store" })
+        .then(r => r.json())
+        .then(data => {
+          rebuildEffectiveAirfieldsAdmin(data && data.airfieldEdits, data && data.airfieldDeleted);
+          renderAirfieldTable($("afSearch").value);
+        })
+        .catch(() => {});
+    }
+
+    function renderAirfieldTable(filterQ) {
+      const q = (filterQ || "").trim().toUpperCase();
+      const rows = EFFECTIVE_AIRFIELDS_ADMIN.filter(a => {
+        if (!q) return true;
+        return a[0].includes(q) || (a[1] || "").includes(q) || a[2].toUpperCase().includes(q);
+      }).sort((a, b) => a[0] < b[0] ? -1 : 1);
+
+      let html = "<thead><tr><th>ICAO</th><th>IATA</th><th>Name</th><th>Sys</th><th>RWYs</th><th></th></tr></thead><tbody>";
+      rows.forEach(a => {
+        const [icao, iata, name, , , system, runways] = a;
+        html += "<tr><td><b>" + icao + "</b></td><td>" + (iata || "—") + "</td><td>" + name +
+          "</td><td>" + (system || "—") + "</td><td>" + runways.length + "</td><td>" +
+          "<div class='btn-row'>" +
+          "<button class='mini-btn' data-edit='" + icao + "'>Edit</button>" +
+          "<button class='mini-btn danger' data-del='" + icao + "'>Delete</button>" +
+          "</div></td></tr>";
+      });
+      html += "</tbody>";
+      $("afTable").innerHTML = html;
+    }
+
+    $("afSearch").addEventListener("input", () => renderAirfieldTable($("afSearch").value));
+
+    $("afTable").addEventListener("click", e => {
+      const editIcao = e.target.dataset.edit;
+      const delIcao = e.target.dataset.del;
+      if (editIcao) startEdit(editIcao);
+      if (delIcao) queueDelete(delIcao);
+    });
+
+    function addRunwayRow(prefill) {
+      const row = document.createElement("div");
+      row.className = "rwy-row";
+      row.innerHTML =
+        "<input class='rwy-designator' placeholder='e.g. 09L' value='" + ((prefill && prefill.rwy) || "") + "'>" +
+        "<input class='rwy-length' type='number' placeholder='Length ft' value='" + ((prefill && prefill.lengthFt) || "") + "'>" +
+        "<input class='rwy-width' type='number' placeholder='Width ft' value='" + ((prefill && prefill.widthFt) || "") + "'>" +
+        "<button class='rwy-remove' type='button'>&times;</button>";
+      row.querySelector(".rwy-remove").addEventListener("click", () => row.remove());
+      $("rwyRows").appendChild(row);
+    }
+
+    $("addRwyRow").addEventListener("click", () => addRunwayRow());
+
+    function collectRunwaysFromForm() {
+      return [...$("rwyRows").querySelectorAll(".rwy-row")].map(row => ({
+        rwy: row.querySelector(".rwy-designator").value.trim(),
+        lengthFt: Number(row.querySelector(".rwy-length").value),
+        widthFt: Number(row.querySelector(".rwy-width").value),
+      }));
+    }
+
+    function clearAirfieldForm() {
+      editingIcao = null;
+      $("afFormHead").textContent = "Add Airfield";
+      $("afIcao").value = "";
+      $("afIata").value = "";
+      $("afName").value = "";
+      $("afSystem").value = "PCR";
+      $("rwyRows").innerHTML = "";
+      addRunwayRow();
+      $("queueStatus").innerHTML = "";
+    }
+
+    $("clearFormBtn").addEventListener("click", clearAirfieldForm);
+
+    function startEdit(icao) {
+      const af = EFFECTIVE_AIRFIELDS_ADMIN.find(a => a[0] === icao);
+      if (!af) return;
+      const [afIcao, iata, name, , , system, runways] = af;
+      editingIcao = afIcao;
+      $("afFormHead").textContent = "Edit Airfield — " + afIcao;
+      $("afIcao").value = afIcao;
+      $("afIata").value = iata || "";
+      $("afName").value = name;
+      $("afSystem").value = system === "PCN" ? "PCN" : "PCR";
+      $("rwyRows").innerHTML = "";
+      runways.forEach(r => addRunwayRow({ rwy: r[0], lengthFt: r[1], widthFt: r[2] }));
+      $("queueStatus").innerHTML = "";
+      window.scrollTo({ top: $("afFormHead").getBoundingClientRect().top + window.scrollY - 12, behavior: "smooth" });
+    }
+
+    $("queueBtn").addEventListener("click", () => {
+      const passcode = $("passcode").value;
+      const qEl = $("queueStatus");
+      if (!passcode) { showStatus(qEl, false, "Enter the passcode first."); return; }
+      const body = {
+        passcode,
+        action: editingIcao ? "edit" : "add",
+        data: {
+          icao: $("afIcao").value.trim(),
+          iata: $("afIata").value.trim(),
+          name: $("afName").value.trim(),
+          system: $("afSystem").value,
+          runways: collectRunwaysFromForm(),
+        },
+      };
+      if (editingIcao) body.icao = editingIcao;
+      fetch(PCR_API_BASE + "/airfields-pending/queue", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      })
+        .then(r => r.json().then(data => ({ status: r.status, data })))
+        .then(({ status, data }) => {
+          if (status === 401) return showStatus(qEl, false, "Wrong passcode.");
+          if (status !== 200) return showStatus(qEl, false, "Error: " + (data.error || status));
+          showStatus(qEl, true, "Queued — see Pending Changes above.");
+          clearAirfieldForm();
+          fetchPending();
+        })
+        .catch(() => showStatus(qEl, false, "Couldn't reach the update server."));
+    });
+
+    function queueDelete(icao) {
+      const passcode = $("passcode").value;
+      if (!passcode) { alert("Enter the passcode first."); return; }
+      if (!confirm("Queue deletion of " + icao + "? This won't take effect until you Publish.")) return;
+      fetch(PCR_API_BASE + "/airfields-pending/queue", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passcode, action: "delete", icao }),
+      })
+        .then(r => r.json().then(data => ({ status: r.status, data })))
+        .then(({ status, data }) => {
+          if (status !== 200) { alert("Error: " + (data.error || status)); return; }
+          fetchPending();
+        })
+        .catch(() => alert("Couldn't reach the update server."));
+    }
+
+    function renderPendingList(actions) {
+      if (!actions.length) {
+        $("pendingCard").style.display = "none";
+        return;
+      }
+      $("pendingCard").style.display = "";
+      let html = "";
+      actions.forEach(a => {
+        let detail = "";
+        if (a.type === "add") detail = a.data.iata + " · " + a.data.name + " · " + a.data.runways.length + " runway(s)";
+        else if (a.type === "edit") detail = "→ " + a.data.icao + " · " + a.data.iata + " · " + a.data.name + " · " + a.data.runways.length + " runway(s)";
+        else if (a.type === "delete") detail = "will be removed";
+        let warn = "";
+        if (a.affectedOverrides > 0) {
+          warn = "<div style='color:var(--red-txt);font-size:11px;margin-top:2px'>⚠ " + a.affectedOverrides +
+            " live override entr" + (a.affectedOverrides === 1 ? "y" : "ies") +
+            (a.type === "delete" ? " will be orphaned" : " on this ICAO") + "</div>";
+        }
+        html += "<div class='pending-item'><div class='prow'>" +
+          "<div><span class='ptype " + a.type + "'>" + a.type + "</span> &nbsp;<b>" + a.icao + "</b> &nbsp;" + detail + "</div>" +
+          "<button class='pending-remove' data-remove='" + a.icao + "'>Remove</button>" +
+          "</div>" + warn + "</div>";
+      });
+      $("pendingList").innerHTML = html;
+    }
+
+    $("pendingList").addEventListener("click", e => {
+      const icao = e.target.dataset.remove;
+      if (!icao) return;
+      const passcode = $("passcode").value;
+      if (!passcode) { alert("Enter the passcode first."); return; }
+      fetch(PCR_API_BASE + "/airfields-pending/remove", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passcode, icao }),
+      }).then(() => fetchPending()).catch(() => {});
+    });
+
+    $("cancelPendingBtn").addEventListener("click", () => {
+      const passcode = $("passcode").value;
+      if (!passcode) { alert("Enter the passcode first."); return; }
+      if (!confirm("Cancel all pending airfield changes? Nothing will be applied.")) return;
+      fetch(PCR_API_BASE + "/airfields-pending/cancel", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ passcode }),
+      }).then(() => fetchPending()).catch(() => {});
+    });
+
+    $("publishBtn").addEventListener("click", () => {
+      const passcode = $("passcode").value;
+      const pEl = $("publishStatus");
+      if (!passcode) { showStatus(pEl, false, "Enter the passcode first."); return; }
+      if (!confirm("Publish all pending airfield changes now? This goes live immediately and updates the Check tab's Synced date — you'll need to announce it on FlightBox afterward.")) return;
+      fetch(PCR_API_BASE + "/airfields-pending/publish", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ passcode }),
+      })
+        .then(r => r.json().then(data => ({ status: r.status, data })))
+        .then(({ status, data }) => {
+          if (status === 401) return showStatus(pEl, false, "Wrong passcode.");
+          if (status !== 200) return showStatus(pEl, false, "Error: " + (data.error || status));
+          let html = "<div class='result ok'><strong>Published — Live (" + data.lastPublished + ")</strong><br>";
+          if (data.added.length) html += "Added: " + data.added.join(", ") + "<br>";
+          if (data.edited.length) html += "Edited: " + data.edited.join(", ") + "<br>";
+          if (data.deleted.length) html += "Deleted: " + data.deleted.join(", ") + "<br>";
+          html += "</div><div class='result bad' style='margin-top:6px'>" + data.reminder + "</div>";
+          pEl.innerHTML = html;
+          fetchPending();
+          fetchOverlay();
+        })
+        .catch(() => showStatus(pEl, false, "Couldn't reach the update server."));
+    });
+
+    function fetchPending() {
+      fetch(PCR_API_BASE + "/airfields-pending")
+        .then(r => r.json())
+        .then(data => renderPendingList((data && data.actions) || []))
+        .catch(() => {});
+    }
+
+    clearAirfieldForm();
+    renderAirfieldTable("");
+    fetchOverlay();
+    fetchPending();
   </script>
 </body>
 </html>

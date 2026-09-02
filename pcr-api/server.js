@@ -1,7 +1,8 @@
-// pcr-api — tiny zero-dependency HTTP service for live PCN/PCR runway overrides.
-// Read side is open (matches the app's no-login design); the write side
-// (/update) requires PCR_UPDATE_PASSCODE so random visitors can't inject
-// pavement data that feeds real weight/dispatch decisions.
+// pcr-api — tiny zero-dependency HTTP service for live PCN/PCR runway overrides
+// and the admin-managed airfield database overlay.
+// Read side is open (matches the app's no-login design); every write path
+// requires PCR_UPDATE_PASSCODE so random visitors can't inject data that
+// feeds real weight/dispatch decisions.
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -14,11 +15,22 @@ const PORT = process.env.PORT || 3007;
 const OVERRIDES_FILE = path.join(DATA_DIR, "overrides.json");
 const SUBMIT_LOG_FILE = path.join(DATA_DIR, "submission-log.json");
 const SYNC_STATUS_FILE = path.join(DATA_DIR, "sync-status.json");
+// Live overlay on top of the baked-in airfields.js database: admin-added and
+// admin-edited airfields, plus a tombstone list of deleted ones. Lets the
+// admin add/edit/delete airfields & runways without a code redeploy — same
+// pattern as overrides.json does for PCN/PCR values.
+const AIRFIELDS_OVERLAY_FILE = path.join(DATA_DIR, "airfields-overlay.json");
+// Staged (not-yet-live) add/edit/delete actions, one per ICAO. Admin reviews
+// the full pending list, then Publishes (applies everything + bumps
+// lastPublished once) or Cancels (discards).
+const PENDING_FILE = path.join(DATA_DIR, "pending-airfield-changes.json");
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(OVERRIDES_FILE)) fs.writeFileSync(OVERRIDES_FILE, "{}");
 if (!fs.existsSync(SUBMIT_LOG_FILE)) fs.writeFileSync(SUBMIT_LOG_FILE, JSON.stringify({ wef: null, entries: [] }));
 if (!fs.existsSync(SYNC_STATUS_FILE)) fs.writeFileSync(SYNC_STATUS_FILE, JSON.stringify({ lastPublished: null }));
+if (!fs.existsSync(AIRFIELDS_OVERLAY_FILE)) fs.writeFileSync(AIRFIELDS_OVERLAY_FILE, JSON.stringify({ edits: {}, deleted: [] }));
+if (!fs.existsSync(PENDING_FILE)) fs.writeFileSync(PENDING_FILE, JSON.stringify({ actions: {} }));
 
 function loadAirfields() {
   const src = fs.readFileSync(AIRFIELDS_JS, "utf8");
@@ -27,6 +39,14 @@ function loadAirfields() {
   const rest = src.slice(start);
   const end = rest.lastIndexOf("]") + 1;
   return JSON.parse(rest.slice(0, end));
+}
+
+function readJson(file) {
+  return JSON.parse(fs.readFileSync(file, "utf8"));
+}
+
+function writeJson(file, obj) {
+  fs.writeFileSync(file, JSON.stringify(obj, null, 2));
 }
 
 function cors(res) {
@@ -42,19 +62,64 @@ function json(res, code, obj) {
 
 const PCN_RE = /^\d+(\.\d+)?\/[RF]\/[A-D]\/[A-Z]+\/[A-Z]$/;
 
+// A "current effective" airfield record — the overlay's edit if present,
+// null if tombstoned as deleted, otherwise the baked-in record converted to
+// the overlay's plain-object shape. Used by every pending/publish endpoint
+// so they all agree on "what does this airfield look like right now".
+function effectiveRecord(icao, byIcao, overlay) {
+  if (overlay.edits[icao]) return overlay.edits[icao];
+  if (overlay.deleted.includes(icao)) return null;
+  const af = byIcao[icao];
+  if (!af) return null;
+  return {
+    icao: af[0], iata: af[1], name: af[2], system: af[5],
+    runways: af[6].map(r => ({ rwy: r[0], lengthFt: r[1], widthFt: r[2] })),
+  };
+}
+
+function validateAirfieldRecord(data) {
+  const icao = String((data && data.icao) || "").trim().toUpperCase();
+  const iata = String((data && data.iata) || "").trim().toUpperCase();
+  const name = String((data && data.name) || "").trim();
+  const system = String((data && data.system) || "").trim().toUpperCase();
+  const runwaysIn = Array.isArray(data && data.runways) ? data.runways : [];
+
+  if (!/^[A-Z0-9]{3,4}$/.test(icao)) return { error: "ICAO is required (3-4 letters/digits)" };
+  if (!iata) return { error: "IATA is required" };
+  if (!name) return { error: "Name is required" };
+  if (system !== "PCR" && system !== "PCN") return { error: "System must be PCR or PCN" };
+  if (!runwaysIn.length) return { error: "At least one runway is required" };
+
+  const runways = [];
+  const seen = new Set();
+  for (const r of runwaysIn) {
+    const rwy = String((r && r.rwy) || "").trim().toUpperCase();
+    const lengthFt = Number(r && r.lengthFt);
+    const widthFt = Number(r && r.widthFt);
+    if (!rwy) return { error: "Every runway needs a designator" };
+    if (seen.has(rwy)) return { error: "Duplicate runway designator: " + rwy };
+    seen.add(rwy);
+    if (!Number.isFinite(lengthFt) || lengthFt <= 0) return { error: "Runway " + rwy + " needs a valid length" };
+    if (!Number.isFinite(widthFt) || widthFt <= 0) return { error: "Runway " + rwy + " needs a valid width" };
+    runways.push({ rwy, lengthFt, widthFt });
+  }
+
+  return { record: { icao, iata, name, system, runways } };
+}
+
 const server = http.createServer((req, res) => {
   cors(res);
   if (req.method === "OPTIONS") { res.writeHead(204); return res.end(); }
 
   const url = new URL(req.url, "http://x");
   let pathname = url.pathname;
-  // Handle both /update and /pcr-api/update (strip /pcr-api prefix if present)
+  // Handle both e.g. /overrides and /pcr-api/overrides (strip /pcr-api prefix if present)
   if (pathname.startsWith("/pcr-api/")) {
     pathname = pathname.slice(8); // Remove "/pcr-api" (8 chars), keep the "/"
   }
 
   if (req.method === "GET" && pathname === "/overrides") {
-    const allOverrides = JSON.parse(fs.readFileSync(OVERRIDES_FILE, "utf8"));
+    const allOverrides = readJson(OVERRIDES_FILE);
     const today = new Date().toISOString().split("T")[0];
 
     // Convert user-friendly date format (DDMmmYY) to ISO format (YYYY-MM-DD)
@@ -119,8 +184,12 @@ const server = http.createServer((req, res) => {
       }
     }
 
-    const syncStatus = JSON.parse(fs.readFileSync(SYNC_STATUS_FILE, "utf8"));
-    return json(res, 200, { overrides: result, currentWef, nextWef, lastPublished: syncStatus.lastPublished });
+    const syncStatus = readJson(SYNC_STATUS_FILE);
+    const overlay = readJson(AIRFIELDS_OVERLAY_FILE);
+    return json(res, 200, {
+      overrides: result, currentWef, nextWef, lastPublished: syncStatus.lastPublished,
+      airfieldEdits: overlay.edits, airfieldDeleted: overlay.deleted,
+    });
   }
 
   if (req.method === "GET" && pathname === "/health") {
@@ -128,8 +197,173 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === "GET" && pathname === "/log") {
-    const log = JSON.parse(fs.readFileSync(SUBMIT_LOG_FILE, "utf8"));
-    return json(res, 200, log);
+    return json(res, 200, readJson(SUBMIT_LOG_FILE));
+  }
+
+  if (req.method === "GET" && pathname === "/airfields-pending") {
+    const pending = readJson(PENDING_FILE);
+    const overrides = readJson(OVERRIDES_FILE);
+    function countOverridesForIcao(icao) {
+      let n = 0;
+      for (const k in overrides) if (overrides[k].icao === icao) n++;
+      return n;
+    }
+    const actions = Object.values(pending.actions).map(a => ({ ...a, affectedOverrides: countOverridesForIcao(a.icao) }));
+    actions.sort((a, b) => a.queuedAt < b.queuedAt ? -1 : 1);
+    return json(res, 200, { actions });
+  }
+
+  if (req.method === "POST" && pathname === "/airfields-pending/queue") {
+    let body = "";
+    req.on("data", c => { body += c; if (body.length > 200000) req.destroy(); });
+    req.on("end", () => {
+      let data;
+      try { data = JSON.parse(body); } catch { return json(res, 400, { error: "invalid JSON" }); }
+      if (data.passcode !== PASSCODE) return json(res, 401, { error: "wrong passcode" });
+
+      let airfields;
+      try { airfields = loadAirfields(); } catch (e) { return json(res, 500, { error: "could not load airfields data: " + e.message }); }
+      const byIcao = {};
+      airfields.forEach(a => { byIcao[a[0]] = a; });
+      const overlay = readJson(AIRFIELDS_OVERLAY_FILE);
+      const pending = readJson(PENDING_FILE);
+
+      const action = data.action;
+
+      if (action === "add") {
+        const v = validateAirfieldRecord(data.data || {});
+        if (v.error) return json(res, 400, { error: v.error });
+        if (effectiveRecord(v.record.icao, byIcao, overlay)) {
+          return json(res, 400, { error: "ICAO " + v.record.icao + " already exists — use Edit instead" });
+        }
+        pending.actions[v.record.icao] = { type: "add", icao: v.record.icao, data: v.record, queuedAt: new Date().toISOString() };
+      } else if (action === "edit") {
+        const originalIcao = String(data.icao || "").trim().toUpperCase();
+        if (!originalIcao) return json(res, 400, { error: "original ICAO is required for edit" });
+        if (!effectiveRecord(originalIcao, byIcao, overlay)) return json(res, 400, { error: "ICAO " + originalIcao + " not found" });
+        const v = validateAirfieldRecord(data.data || {});
+        if (v.error) return json(res, 400, { error: v.error });
+        if (v.record.icao !== originalIcao && effectiveRecord(v.record.icao, byIcao, overlay)) {
+          return json(res, 400, { error: "ICAO " + v.record.icao + " already exists" });
+        }
+        pending.actions[originalIcao] = { type: "edit", icao: originalIcao, data: v.record, queuedAt: new Date().toISOString() };
+      } else if (action === "delete") {
+        const icao = String(data.icao || "").trim().toUpperCase();
+        if (!icao) return json(res, 400, { error: "icao is required" });
+        if (!effectiveRecord(icao, byIcao, overlay)) return json(res, 400, { error: "ICAO " + icao + " not found" });
+        pending.actions[icao] = { type: "delete", icao, data: null, queuedAt: new Date().toISOString() };
+      } else {
+        return json(res, 400, { error: "invalid action — must be add, edit, or delete" });
+      }
+
+      writeJson(PENDING_FILE, pending);
+      return json(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/airfields-pending/remove") {
+    let body = "";
+    req.on("data", c => { body += c; if (body.length > 200000) req.destroy(); });
+    req.on("end", () => {
+      let data;
+      try { data = JSON.parse(body); } catch { return json(res, 400, { error: "invalid JSON" }); }
+      if (data.passcode !== PASSCODE) return json(res, 401, { error: "wrong passcode" });
+      const icao = String(data.icao || "").trim().toUpperCase();
+      const pending = readJson(PENDING_FILE);
+      delete pending.actions[icao];
+      writeJson(PENDING_FILE, pending);
+      return json(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/airfields-pending/cancel") {
+    let body = "";
+    req.on("data", c => { body += c; if (body.length > 200000) req.destroy(); });
+    req.on("end", () => {
+      let data;
+      try { data = JSON.parse(body); } catch { return json(res, 400, { error: "invalid JSON" }); }
+      if (data.passcode !== PASSCODE) return json(res, 401, { error: "wrong passcode" });
+      writeJson(PENDING_FILE, { actions: {} });
+      return json(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  if (req.method === "POST" && pathname === "/airfields-pending/publish") {
+    let body = "";
+    req.on("data", c => { body += c; if (body.length > 200000) req.destroy(); });
+    req.on("end", () => {
+      let data;
+      try { data = JSON.parse(body); } catch { return json(res, 400, { error: "invalid JSON" }); }
+      if (data.passcode !== PASSCODE) return json(res, 401, { error: "wrong passcode" });
+
+      let airfields;
+      try { airfields = loadAirfields(); } catch (e) { return json(res, 500, { error: "could not load airfields data: " + e.message }); }
+      const byIcao = {};
+      airfields.forEach(a => { byIcao[a[0]] = a; });
+
+      const overlay = readJson(AIRFIELDS_OVERLAY_FILE);
+      const overrides = readJson(OVERRIDES_FILE);
+      const pending = readJson(PENDING_FILE);
+      const today = new Date().toISOString().split("T")[0];
+
+      const actions = Object.values(pending.actions);
+      if (!actions.length) return json(res, 400, { error: "nothing pending to publish" });
+
+      const added = [], edited = [], deleted = [];
+      const newRunwaysByIcao = {}; // for the LIDO-extraction reminder
+
+      for (const act of actions) {
+        if (act.type === "add") {
+          overlay.edits[act.data.icao] = act.data;
+          const di = overlay.deleted.indexOf(act.data.icao);
+          if (di !== -1) overlay.deleted.splice(di, 1);
+          added.push(act.data.icao);
+          newRunwaysByIcao[act.data.icao] = act.data.runways.map(r => r.rwy);
+        } else if (act.type === "edit") {
+          const before = effectiveRecord(act.icao, byIcao, overlay);
+          const newIcao = act.data.icao;
+          if (newIcao !== act.icao) {
+            // Renaming ICAO: drop the old overlay edit, tombstone the old
+            // code if it was a baked-in airfield, and rekey any live
+            // overrides so PCN history follows the airfield to its new code.
+            delete overlay.edits[act.icao];
+            if (byIcao[act.icao] && !overlay.deleted.includes(act.icao)) overlay.deleted.push(act.icao);
+            for (const k in overrides) {
+              if (overrides[k].icao === act.icao) {
+                const ov = overrides[k];
+                overrides[newIcao + "|" + ov.rwy + "|" + ov.wef] = { ...ov, icao: newIcao };
+                delete overrides[k];
+              }
+            }
+            const di = overlay.deleted.indexOf(newIcao);
+            if (di !== -1) overlay.deleted.splice(di, 1);
+          }
+          overlay.edits[newIcao] = act.data;
+          edited.push(newIcao);
+          const beforeRwys = new Set((before && before.runways || []).map(r => r.rwy));
+          const newlyAdded = act.data.runways.map(r => r.rwy).filter(rwy => !beforeRwys.has(rwy));
+          if (newlyAdded.length) newRunwaysByIcao[newIcao] = newlyAdded;
+        } else if (act.type === "delete") {
+          delete overlay.edits[act.icao];
+          if (!overlay.deleted.includes(act.icao)) overlay.deleted.push(act.icao);
+          deleted.push(act.icao);
+        }
+      }
+
+      writeJson(AIRFIELDS_OVERLAY_FILE, overlay);
+      writeJson(OVERRIDES_FILE, overrides);
+      writeJson(PENDING_FILE, { actions: {} });
+      writeJson(SYNC_STATUS_FILE, { lastPublished: today });
+
+      return json(res, 200, {
+        added, edited, deleted, newRunwaysByIcao, lastPublished: today,
+        reminder: "Remember to announce the new sync date on FlightBox, and add any new airfields/runways to the LIDO extraction script for the next data extraction.",
+      });
+    });
+    return;
   }
 
   if (req.method === "POST" && pathname === "/update") {
@@ -144,8 +378,18 @@ const server = http.createServer((req, res) => {
       try { airfields = loadAirfields(); } catch (e) { return json(res, 500, { error: "could not load airfields data: " + e.message }); }
       const byIcao = {};
       airfields.forEach(a => { byIcao[a[0]] = a; });
+      const overlay = readJson(AIRFIELDS_OVERLAY_FILE);
 
-      const overrides = JSON.parse(fs.readFileSync(OVERRIDES_FILE, "utf8"));
+      // Known runways per ICAO, merging baked-in data with the live overlay
+      // (admin-added/edited airfields, minus deleted ones). Returns null if
+      // the airfield doesn't exist at all.
+      function knownRunwaysFor(icao) {
+        const rec = effectiveRecord(icao, byIcao, overlay);
+        if (!rec) return null;
+        return new Set(rec.runways.map(r => r.rwy));
+      }
+
+      const overrides = readJson(OVERRIDES_FILE);
       const today = new Date().toISOString().split("T")[0];
       const rejected = [];
       const skippedIcaos = new Set();
@@ -182,37 +426,29 @@ const server = http.createServer((req, res) => {
         return active;
       }
 
-      function processRunwayUpdate(icao, rwyInput, pcn, wef, af, appliedIcaos, skippedIcaos, rejected) {
+      function processRunwayUpdate(icao, rwyInput, pcn, wef, knownRwys) {
         // Handle paired runway format: "14L/32R" → apply to both "14L" and "32R"
         const rwyParts = rwyInput.split('/').map(s => s.trim());
         let wasApplied = false;
+        let hadSkip = false;
 
         rwyParts.forEach(rwy => {
+          if (!knownRwys.has(rwy)) {
+            rejected.push({ icao, rwy, pcn, reason: "unknown runway — add it via Manage Airfields first" });
+            return;
+          }
           // Check if new PCN equals current active PCN — if so, skip
           const currentPcn = getCurrentActivePcn(icao, rwy);
-          if (currentPcn === pcn) {
-            return; // Skip — no change from current
-          }
+          if (currentPcn === pcn) { hadSkip = true; return; } // Skip — no change from current
 
-          let rwyExists = af[6].some(r => r[0] === rwy);
-          // Auto-create missing runway with placeholder length/width (not used in calculations)
-          if (!rwyExists) {
-            af[6].push([rwy, 0, 0, null]);
-            rwyExists = true;
-          }
           // Versioned storage: icao|rwy|wef
           const key = icao + "|" + rwy + "|" + wef;
           overrides[key] = { icao, rwy, pcn, wef };
           wasApplied = true;
         });
 
-        // If any runway was applied, add to appliedIcaos; otherwise if all were skipped, add to skippedIcaos
-        if (wasApplied) {
-          appliedIcaos.add(icao);
-        } else if (rwyParts.length > 0) {
-          // All runways in this update were skipped
-          skippedIcaos.add(icao);
-        }
+        if (wasApplied) appliedIcaos.add(icao);
+        else if (hadSkip) skippedIcaos.add(icao);
       }
 
       const wef = String(data.wef || "").trim();
@@ -221,14 +457,14 @@ const server = http.createServer((req, res) => {
         const icao = String(u.icao || "").trim().toUpperCase();
         const rwy = String(u.rwy || "").trim();
         const pcn = String(u.pcn || "").trim();
-        const af = byIcao[icao];
-        if (!af) return rejected.push({ icao, rwy, pcn, reason: "unknown ICAO" });
+        const knownRwys = knownRunwaysFor(icao);
+        if (!knownRwys) return rejected.push({ icao, rwy, pcn, reason: "unknown ICAO" });
         if (!PCN_RE.test(pcn)) return rejected.push({ icao, rwy, pcn, reason: "PCN format looks wrong (expect e.g. 82/F/C/W/T)" });
 
-        processRunwayUpdate(icao, rwy, pcn, wef, af, appliedIcaos, skippedIcaos, rejected);
+        processRunwayUpdate(icao, rwy, pcn, wef, knownRwys);
       });
 
-      fs.writeFileSync(OVERRIDES_FILE, JSON.stringify(overrides, null, 2));
+      writeJson(OVERRIDES_FILE, overrides);
 
       // Categorize ICAO codes by cycle
       const currentCycle = [];
@@ -245,10 +481,10 @@ const server = http.createServer((req, res) => {
       const skipped = Array.from(skippedIcaos).sort();
 
       // Persist to the shared submission log — reset when the WEF cycle changes
-      let log = JSON.parse(fs.readFileSync(SUBMIT_LOG_FILE, "utf8"));
+      let log = readJson(SUBMIT_LOG_FILE);
       if (log.wef !== wef) log = { wef, entries: [] };
       log.entries.push({ time: new Date().toISOString(), currentCycle, nextCycle, skipped, rejected });
-      fs.writeFileSync(SUBMIT_LOG_FILE, JSON.stringify(log, null, 2));
+      writeJson(SUBMIT_LOG_FILE, log);
 
       // "Last published" tracks when the admin most recently pushed a REAL
       // change (not a no-op/dedup skip or a fully-rejected batch), regardless
@@ -256,7 +492,7 @@ const server = http.createServer((req, res) => {
       // it's a "you're looking at my latest publish" freshness marker for
       // crew to cross-check against a FlightBox announcement, not a WEF label.
       if (appliedIcaos.size > 0) {
-        fs.writeFileSync(SYNC_STATUS_FILE, JSON.stringify({ lastPublished: today }));
+        writeJson(SYNC_STATUS_FILE, { lastPublished: today });
       }
 
       return json(res, 200, { wef, currentCycle, nextCycle, skipped, rejected });

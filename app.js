@@ -198,6 +198,35 @@ let refSel = "MTW";
 const PCR_API_BASE = "https://dhl-audit.duckdns.org/pcr-api";
 let OVERRIDES = {};
 
+// EFFECTIVE_AIRFIELDS = the baked-in 455-airfield AIRFIELDS array, with the
+// admin's live overlay applied: edited/added airfields replace or extend it,
+// deleted ones are removed. Starts as plain AIRFIELDS so search/lookup still
+// work before the first sync resolves; rebuilt whenever fetchOverrides() gets
+// fresh overlay data.
+let EFFECTIVE_AIRFIELDS = AIRFIELDS;
+
+function overlayRecordToTuple(rec) {
+  // Admin overlay records are plain objects ({icao,iata,name,system,runways:
+  // [{rwy,lengthFt,widthFt}]}) — convert to the same positional-tuple shape
+  // as the baked-in AIRFIELDS rows so all existing rendering code (which
+  // destructures [icao,iata,name,ops,status,system,runways]) works unchanged.
+  // opsType/status are DHL-internal Excel-import workflow labels the admin
+  // tool never sets — left blank for overlay-managed airfields.
+  return [
+    rec.icao, rec.iata, rec.name, "", "", rec.system,
+    rec.runways.map(r => [r.rwy, r.lengthFt, r.widthFt, null]),
+  ];
+}
+
+function rebuildEffectiveAirfields(airfieldEdits, airfieldDeleted) {
+  const edits = airfieldEdits || {};
+  const deleted = new Set(airfieldDeleted || []);
+  const edited = new Set(Object.keys(edits));
+  const base = AIRFIELDS.filter(a => !deleted.has(a[0]) && !edited.has(a[0]));
+  const overlayRows = Object.values(edits).map(overlayRecordToTuple);
+  EFFECTIVE_AIRFIELDS = base.concat(overlayRows);
+}
+
 function fetchOverrides() {
   const status = $("syncStatus"), btn = $("getUpdateBtn");
   if (btn) btn.disabled = true;
@@ -206,6 +235,7 @@ function fetchOverrides() {
     .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(data => {
       OVERRIDES = (data && data.overrides) ? data.overrides : (data || {});
+      rebuildEffectiveAirfields(data && data.airfieldEdits, data && data.airfieldDeleted);
       if (status) {
         // lastPublished = date of the admin's most recent real publish (any WEF),
         // for crew to cross-check against a FlightBox announcement. Falls back
@@ -255,7 +285,7 @@ function initAutocomplete() {
     q = q.trim().toUpperCase();
     if (!q) return [];
     const starts = [], contains = [];
-    for (const a of AIRFIELDS) {
+    for (const a of EFFECTIVE_AIRFIELDS) {
       if (a[0].startsWith(q) || (a[1] && a[1].startsWith(q))) starts.push(a);
       else if (a[2].toUpperCase().includes(q)) contains.push(a);
       if (starts.length >= 12) break;
@@ -303,9 +333,9 @@ function initAutocomplete() {
 function findAirfield(q) {
   q = q.trim().toUpperCase();
   if (!q) return null;
-  return AIRFIELDS.find(a => a[0] === q) ||
-         AIRFIELDS.find(a => a[1] === q) ||
-         AIRFIELDS.find(a => a[2].toUpperCase() === q) || null;
+  return EFFECTIVE_AIRFIELDS.find(a => a[0] === q) ||
+         EFFECTIVE_AIRFIELDS.find(a => a[1] === q) ||
+         EFFECTIVE_AIRFIELDS.find(a => a[2].toUpperCase() === q) || null;
 }
 
 function parsePcn(str) {
