@@ -1,5 +1,5 @@
-const APP_VERSION = "2.15";
-const APP_VERSION_DATE = "2026-09-01";
+const APP_VERSION = "2.16";
+const APP_VERSION_DATE = "2026-09-02";
 // NOTE: bump APP_VERSION on every update; keep sw.js CACHE name in sync ("pcr-pcn-v<ver>").
 
 /* ================================================================

@@ -1,5 +1,27 @@
 # PCN PCR Calculator — Changelog
 
+## Ver 2.16 — 2026-09-02
+- New **"Manage Airfields" tab** in the admin tool (`pcr-admin.html`) — full
+  Add / Edit / Delete for airfields and their runways, without a code
+  redeploy. Edit supports renaming an airfield's ICAO, automatically
+  rekeying any live PCN overrides so history follows the airfield to its
+  new code. No PCN/PCR value is entered here — that stays on the existing
+  Batch Update tab, entered once the airfield/runway exists.
+- Changes are staged as **Pending** (server-side, visible from any browser)
+  before going live. Each pending item shows how many live override entries
+  it would affect. Admin reviews the full batch, then **Publish** (applies
+  everything at once, bumps the Check tab's "Live" sync date, and prompts a
+  reminder to announce on FlightBox and update the LIDO chart-extraction
+  script for the next data refresh) or **Cancel**.
+- Backend: `POST /update` (the PCN batch endpoint) now rejects updates
+  against a runway that doesn't exist yet, with a clear reason, instead of
+  silently no-op'ing — closing a latent bug where a nonexistent runway
+  looked like it was accepted but was never actually displayed anywhere.
+- Data model simplified: dropped `opsType` and `status` (DHL-internal
+  Excel-import workflow labels) from airfield records, and `lengthFt`/
+  `widthFt` from runway records — none of these were read by any
+  calculation or rendering code. Cuts `airfields.js` roughly in half.
+
 ## Ver 2.15 — 2026-09-01
 - Check tab's "Synced data: Live (date)" no longer shows the WEF of the
   currently-active pavement-data cycle. It now shows the calendar date of
