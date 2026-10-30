@@ -80,6 +80,17 @@
     return wef; // unrecognised: leave as-is
   }
 
+  // Runway designators are stored in one standard form: two digits 01-36 plus an optional
+  // L/R/C (e.g. 09, 27L, 18C). Sloppy input is tidied up ("7" -> "07", "27.0" -> "27",
+  // "11c" -> "11C"); anything that still isn't standard is rejected by the callers.
+  const RWY_RE = /^(0[1-9]|[12][0-9]|3[0-6])[LRC]?$/;
+  function normalizeRunway(s) {
+    s = String(s == null ? "" : s).trim().toUpperCase().replace(/^(\d+)\.0+(?=[A-Z]?$)/, "$1");
+    const m = s.match(/^(\d{1,2})([LRC]?)$/);
+    return m ? m[1].padStart(2, "0") + m[2] : s;
+  }
+  const RWY_HINT = "use two digits plus an optional L/R/C, e.g. 09, 27L, 18C";
+
   /* ── Reading: which override versions are live today ── */
 
   // For each icao|rwy pick the version with the highest WEF <= today; also report
@@ -162,8 +173,9 @@
     const runways = [];
     const seen = new Set();
     for (const r of runwaysIn) {
-      const rwy = String((r && r.rwy) || "").trim().toUpperCase();
+      const rwy = normalizeRunway(r && r.rwy);
       if (!rwy) return { error: "Every runway needs a designator" };
+      if (!RWY_RE.test(rwy)) return { error: "Runway \"" + rwy + "\" isn't a standard designator — " + RWY_HINT };
       if (seen.has(rwy)) return { error: "Duplicate runway designator: " + rwy };
       seen.add(rwy);
       runways.push({ rwy });
@@ -204,9 +216,13 @@
 
     function processRunwayUpdate(icao, rwyInput, pcn, wef, knownRwys) {
       // Paired runway format: "14L/32R" applies to both "14L" and "32R"
-      const rwyParts = rwyInput.split("/").map(s => s.trim());
+      const rwyParts = rwyInput.split("/").map(normalizeRunway);
       let wasApplied = false, hadSkip = false;
       rwyParts.forEach(rwy => {
+        if (!RWY_RE.test(rwy)) {
+          rejected.push({ icao, rwy, pcn, reason: "runway designator isn't standard — " + RWY_HINT });
+          return;
+        }
         if (!knownRwys.has(rwy)) {
           rejected.push({ icao, rwy, pcn, reason: "unknown runway — add it via Manage Airfields first" });
           return;
@@ -362,7 +378,7 @@
   }
 
   return {
-    PCN_RE, FILES, REMINDER,
+    PCN_RE, RWY_RE, FILES, REMINDER, normalizeRunway,
     emptyState, normalizeState, serialize, todayUtc, normalizeWef,
     computeLive,
     indexAirfields, effectiveRecord, overlayRecordToTuple, buildEffectiveAirfields, validateAirfieldRecord,

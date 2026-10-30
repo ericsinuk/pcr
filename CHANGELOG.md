@@ -1,5 +1,20 @@
 # PCN PCR Calculator — Changelog
 
+## Ver 2.19 — 2026-10-30
+- **Runway designators standardised.** 80 runways across 45 airfields were stored in
+  odd forms inherited from the original spreadsheet import (`27.0`, `1.0`, `6.0`,
+  single digits like `7`, lowercase `11c` / `32l`). They are now all in one form —
+  two digits plus an optional L/R/C (`27`, `01`, `06`, `07`, `11C`, `32L`). Only the
+  designators changed; airfields, PCN/PCR strings and runway order are untouched.
+- Side effect, intended: live PCN updates that had been entered in standard form
+  (e.g. Bangkok `01`/`19`, Frankfurt `18`, Istanbul `18`/`36`, Sydney `25`, Vancouver
+  `13`/`31`, Barcelona `20`) never matched those runways before, so they were silently
+  not shown. Nine runway targets now pick up their live value.
+- The admin tool now tidies designators as they are typed (`7` → `07`, `27.0` → `27`,
+  `9l` → `09L`) in both Batch Update and the Add/Edit airfield form, and rejects
+  anything that still isn't a standard designator (e.g. `18RL`, `H1`, `37`) instead of
+  storing it.
+
 ## Ver 2.18 — 2026-10-30
 - **The live data no longer depends on the VPS backend.** Live PCN/PCR data now
   lives in the repository itself as plain JSON files (`data/*.json`). The admin
