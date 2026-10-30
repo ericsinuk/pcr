@@ -236,6 +236,262 @@
           "rwy": "23L"
         }
       ]
+    },
+    "KDLH": {
+      "icao": "KDLH",
+      "iata": "DLH",
+      "name": "Duluth Intl",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "09"
+        },
+        {
+          "rwy": "27"
+        },
+        {
+          "rwy": "03"
+        },
+        {
+          "rwy": "21"
+        }
+      ]
+    },
+    "CYYZ": {
+      "icao": "CYYZ",
+      "iata": "YYZ",
+      "name": "Toronto Pearson",
+      "system": "PCN",
+      "runways": [
+        {
+          "rwy": "05"
+        },
+        {
+          "rwy": "23"
+        },
+        {
+          "rwy": "15R"
+        },
+        {
+          "rwy": "33L"
+        },
+        {
+          "rwy": "15L"
+        },
+        {
+          "rwy": "33R"
+        },
+        {
+          "rwy": "06L"
+        },
+        {
+          "rwy": "24R"
+        },
+        {
+          "rwy": "06R"
+        },
+        {
+          "rwy": "24L"
+        }
+      ]
+    },
+    "KBIL": {
+      "icao": "KBIL",
+      "iata": "BIL",
+      "name": "Billings Logan",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "10L"
+        },
+        {
+          "rwy": "28R"
+        },
+        {
+          "rwy": "07"
+        },
+        {
+          "rwy": "25"
+        },
+        {
+          "rwy": "10R"
+        },
+        {
+          "rwy": "28L"
+        }
+      ]
+    },
+    "KORD": {
+      "icao": "KORD",
+      "iata": "ORD",
+      "name": "Chicago",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "09C"
+        },
+        {
+          "rwy": "27C"
+        },
+        {
+          "rwy": "09R"
+        },
+        {
+          "rwy": "27L"
+        },
+        {
+          "rwy": "10L"
+        },
+        {
+          "rwy": "28R"
+        },
+        {
+          "rwy": "10C"
+        },
+        {
+          "rwy": "28C"
+        },
+        {
+          "rwy": "10R"
+        },
+        {
+          "rwy": "28L"
+        },
+        {
+          "rwy": "09L"
+        },
+        {
+          "rwy": "27R"
+        },
+        {
+          "rwy": "04L"
+        },
+        {
+          "rwy": "22R"
+        },
+        {
+          "rwy": "04R"
+        },
+        {
+          "rwy": "22L"
+        }
+      ]
+    },
+    "PAFA": {
+      "icao": "PAFA",
+      "iata": "FAI",
+      "name": "Fairbanks",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "02L"
+        },
+        {
+          "rwy": "20R"
+        },
+        {
+          "rwy": "02R"
+        },
+        {
+          "rwy": "20L"
+        }
+      ]
+    },
+    "YSCB": {
+      "icao": "YSCB",
+      "iata": "CBR",
+      "name": "Canberra",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "17"
+        },
+        {
+          "rwy": "35"
+        },
+        {
+          "rwy": "12"
+        },
+        {
+          "rwy": "30"
+        }
+      ]
+    },
+    "DNMM": {
+      "icao": "DNMM",
+      "iata": "LOS",
+      "name": "Lagos",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "18L"
+        },
+        {
+          "rwy": "36R"
+        },
+        {
+          "rwy": "18R"
+        },
+        {
+          "rwy": "36L"
+        }
+      ]
+    },
+    "LOWK": {
+      "icao": "LOWK",
+      "iata": "KLU",
+      "name": "Klagenfurt",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "10L"
+        },
+        {
+          "rwy": "28R"
+        }
+      ]
+    },
+    "LOWL": {
+      "icao": "LOWL",
+      "iata": "LNZ",
+      "name": "Linz",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "08"
+        },
+        {
+          "rwy": "26"
+        }
+      ]
+    },
+    "OJAM": {
+      "icao": "OJAM",
+      "iata": "ADJ",
+      "name": "Amman",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "06"
+        },
+        {
+          "rwy": "24"
+        }
+      ]
+    },
+    "YMAV": {
+      "icao": "YMAV",
+      "iata": "AVV",
+      "name": "Avalon",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "18"
+        },
+        {
+          "rwy": "36"
+        }
+      ]
     }
   },
   "deleted": [
