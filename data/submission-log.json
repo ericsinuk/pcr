@@ -1,0 +1,23 @@
+{
+  "wef": "2026-09-03",
+  "entries": [
+    {
+      "time": "2026-09-01T07:23:23.280Z",
+      "currentCycle": [],
+      "nextCycle": ["CYHM","CYQB","CYUL","CYVR","CYYZ","DNMM","EGCC","EKBI","ENCN","ENGM","KBIL","KORD","LEBL","LFOK","LGIR","LHBP","LKPR","LYBE","OMSJ","PAFA","RJAA","RKSS","UAAA","UAKK","VVNB","YBBN","YMAV","YMML","YSCB","ZGGG","ZHEC","ZHHH","ZSHC"],
+      "skipped": [],
+      "rejected": [
+        {"icao":"EGKK","rwy":"08R","pcn":"100/F/C/W/T","reason":"unknown ICAO"},
+        {"icao":"EGKK","rwy":"26L","pcn":"100/F/C/W/T","reason":"unknown ICAO"},
+        {"icao":"EGKK","rwy":"08L","pcn":"100/F/C/W/T","reason":"unknown ICAO"},
+        {"icao":"EGKK","rwy":"26R","pcn":"100/F/C/W/T","reason":"unknown ICAO"},
+        {"icao":"KCLT","rwy":"18","pcn":"1076/R/D/W/T","reason":"unknown ICAO"},
+        {"icao":"KCLT","rwy":"36","pcn":"1076/R/D/W/T","reason":"unknown ICAO"},
+        {"icao":"KCLT","rwy":"01R","pcn":"1009/R/C/W/T","reason":"unknown ICAO"},
+        {"icao":"KCLT","rwy":"19L","pcn":"1009/R/C/W/T","reason":"unknown ICAO"},
+        {"icao":"KCLT","rwy":"01L","pcn":"627/R/C/W/T","reason":"unknown ICAO"},
+        {"icao":"KCLT","rwy":"19R","pcn":"627/R/C/W/T","reason":"unknown ICAO"}
+      ]
+    }
+  ]
+}
