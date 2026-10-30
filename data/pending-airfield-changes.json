@@ -35,10 +35,16 @@
         "system": "PCR",
         "runways": [
           {
-            "rwy": "17L"
+            "rwy": "13L"
           },
           {
-            "rwy": "35R"
+            "rwy": "31R"
+          },
+          {
+            "rwy": "13R"
+          },
+          {
+            "rwy": "31L"
           },
           {
             "rwy": "17C"
@@ -47,20 +53,26 @@
             "rwy": "35C"
           },
           {
-            "rwy": "17R"
+            "rwy": "17L"
           },
           {
-            "rwy": "35L"
+            "rwy": "35R"
           },
           {
-            "rwy": "31L"
+            "rwy": "18L"
           },
           {
-            "rwy": "31R"
+            "rwy": "36R"
+          },
+          {
+            "rwy": "18R"
+          },
+          {
+            "rwy": "36L"
           }
         ]
       },
-      "queuedAt": "2026-10-30T10:22:45.545Z"
+      "queuedAt": "2026-10-30T10:49:47.769Z"
     },
     "EGKK": {
       "type": "add",
@@ -69,7 +81,7 @@
         "icao": "EGKK",
         "iata": "LGW",
         "name": "London Gatwick",
-        "system": "PCN",
+        "system": "PCR",
         "runways": [
           {
             "rwy": "08L"
@@ -85,7 +97,7 @@
           }
         ]
       },
-      "queuedAt": "2026-10-30T10:22:45.545Z"
+      "queuedAt": "2026-10-30T10:49:47.767Z"
     },
     "GMTT": {
       "type": "add",
