@@ -1,5 +1,14 @@
 # PCN PCR Calculator — Changelog
 
+## Ver 2.20 — 2026-10-30
+- Fixed three airfields whose runway list repeated one runway twice (so the Check tab
+  showed it twice and one real runway was missing): **ZHCC** now has 30L (`1100/R/B/W/T`,
+  a PCR) in place of the second 30R; **EDDK** has 31L (`75/F/A/W/T`) in place of the second
+  31R; **ORBI** has 33L (`54/R/C/W/T`) in place of the second 15R. No duplicate designators
+  remain anywhere in the database.
+- (Data, not code) ORBI 15L/33R were also updated to `56/R/C/W/T` through the normal
+  dated batch, effective 2026-10-30.
+
 ## Ver 2.19 — 2026-10-30
 - **Runway designators standardised.** 80 runways across 45 airfields were stored in
   odd forms inherited from the original spreadsheet import (`27.0`, `1.0`, `6.0`,
