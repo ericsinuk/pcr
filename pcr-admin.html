@@ -48,6 +48,10 @@
   .result.ok{background:var(--green-bg);color:var(--green-txt)}
   .result.bad{background:var(--red-bg);color:var(--red-txt)}
   .hint{font-size:10px;color:var(--text3);line-height:1.5}
+  .conn{font-size:12px;line-height:1.6;border-radius:var(--radius);padding:9px 12px;background:var(--bg2);color:var(--text2)}
+  .conn.ok{background:var(--green-bg);color:var(--green-txt)}
+  .conn.bad{background:var(--red-bg);color:var(--red-txt)}
+  #pageBatch .btn-row, .card-body > .btn-row{flex-wrap:wrap}
   .week-header{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em}
   .entry-list{display:flex;flex-direction:column;gap:8px}
   .entry-card{display:flex;flex-direction:column;gap:6px;padding-top:10px;border-top:0.5px solid var(--border)}
@@ -107,6 +111,24 @@
   </div>
 
   <div class="wrap">
+
+    <div class="card">
+      <div class="card-head">Server</div>
+      <div class="card-body">
+        <div id="connStatus" class="conn">Checking…</div>
+        <div class="field">
+          <label for="apiBaseInput">API address</label>
+          <input id="apiBaseInput" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="apiSaveBtn" type="button">Save &amp; test</button>
+          <button class="btn" id="apiResetBtn" type="button">Reset to default</button>
+          <button class="btn" id="apiRecheckBtn" type="button">Recheck</button>
+        </div>
+        <div id="apiMsg"></div>
+        <div class="hint">Saved in this browser only. Change it only if you've been given a new address for the update server — your passcode is sent to whatever address is shown here.</div>
+      </div>
+    </div>
 
     <div class="card">
       <div class="card-head">Passcode</div>
@@ -197,17 +219,76 @@
 
   <script src="airfields.js"></script>
   <script>
-    const PCR_API_BASE = "https://dhl-audit.duckdns.org/pcr-api";
+    const PCR_API_DEFAULT = "https://dhl-audit.duckdns.org/pcr-api";
+    const API_KEY = "pcrApiBase";
     const $ = id => document.getElementById(id);
     const byIcao = {};
     AIRFIELDS.forEach(a => { byIcao[a[0]] = a; });
 
     let selectedIcao = null;
 
+    /* ── API address (changeable per browser, no redeploy needed) ── */
+    // Deliberately NOT settable via URL/query string: a crafted link must not
+    // be able to point the passcode at someone else's server.
+    let apiBaseMem = null; // used when this browser won't persist localStorage
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    function normalizeApiBase(v) {
+      v = String(v || "").trim().replace(/\/+$/, "");
+      const okHttps = /^https:\/\/[^\s/]+(\/[^\s]*)?$/i.test(v);
+      const okLocal = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[^\s]*)?$/i.test(v);
+      return (okHttps || okLocal) ? v : null;
+    }
+
+    function apiBase() {
+      if (apiBaseMem) return apiBaseMem;
+      try {
+        const saved = normalizeApiBase(localStorage.getItem(API_KEY));
+        if (saved) return saved;
+      } catch (e) {}
+      return PCR_API_DEFAULT;
+    }
+
+    function apiHost() { return apiBase().replace(/^https?:\/\//, "").split("/")[0]; }
+
+    // Resolves {status, data} for any JSON reply. Rejects with err.kind:
+    //   "network"     — the request never completed (blocked, offline, DNS, CORS preflight denied…)
+    //   "badresponse" — something answered but it wasn't our JSON API (proxy block page, 502 with no body…)
+    function apiCall(path, opts) {
+      return fetch(apiBase() + path, opts).then(
+        r => r.text().then(text => {
+          let data = null;
+          try { data = JSON.parse(text); } catch (e) {}
+          if (data === null || typeof data !== "object") {
+            const err = new Error("bad response"); err.kind = "badresponse"; err.status = r.status; throw err;
+          }
+          return { status: r.status, data };
+        }),
+        () => { const err = new Error("network"); err.kind = "network"; throw err; }
+      );
+    }
+
+    function postJson(path, body) {
+      return apiCall(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    }
+
+    function describeApiError(err) {
+      const host = esc(apiHost());
+      if (err && err.kind === "badresponse") {
+        if (err.status >= 500) {
+          return "The update server answered with HTTP " + err.status + " — the service may be down or restarting. Try again shortly.";
+        }
+        return "Got an unexpected reply (HTTP " + err.status + ") that didn't come from the update server — a firewall or proxy on this network may be intercepting requests to <b>" + host + "</b>.";
+      }
+      return "Can't reach <b>" + host + "</b> from this browser. The server itself may be fine — this usually means a firewall, proxy or ad-blocker is blocking it, or you're offline. See the Server box at the top of the page to test reads and writes separately.";
+    }
+
     function fetchLog(resultEl) {
-      fetch(PCR_API_BASE + "/log")
-        .then(r => r.json())
-        .then(log => renderLog(log, resultEl))
+      apiCall("/log", { cache: "no-store" })
+        .then(({ data }) => { if (data && data.entries) renderLog(data, resultEl); })
         .catch(() => {});
     }
 
@@ -249,19 +330,14 @@
       if (!wef) { showStatus(statusEl, false, "Enter the WEF date (e.g. 2026-08-13)."); return; }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(wef)) { showStatus(statusEl, false, "Invalid WEF date format. Use YYYY-MM-DD (e.g. 2026-08-13)"); return; }
       btn.disabled = true;
-      fetch(PCR_API_BASE + "/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ passcode, updates, wef }),
-      })
-        .then(r => r.json().then(data => ({ status: r.status, data })))
+      postJson("/update", { passcode, updates, wef })
         .then(({ status, data }) => {
           if (status === 401) return showStatus(statusEl, false, "Wrong passcode.");
-          if (status !== 200) return showStatus(statusEl, false, "Error: " + (data.error || status));
+          if (status !== 200) return showStatus(statusEl, false, "Error: " + esc(data.error || status));
           statusEl.innerHTML = "";
           fetchLog(logEl);
         })
-        .catch(() => showStatus(statusEl, false, "Couldn't reach the update server."))
+        .catch(err => showStatus(statusEl, false, describeApiError(err)))
         .finally(() => { btn.disabled = false; });
     }
 
@@ -320,9 +396,8 @@
     }
 
     function fetchOverlay() {
-      return fetch(PCR_API_BASE + "/overrides", { cache: "no-store" })
-        .then(r => r.json())
-        .then(data => {
+      return apiCall("/overrides", { cache: "no-store" })
+        .then(({ data }) => {
           rebuildEffectiveAirfieldsAdmin(data && data.airfieldEdits, data && data.airfieldDeleted);
           renderAirfieldTable($("afSearch").value);
         })
@@ -423,34 +498,28 @@
         },
       };
       if (editingIcao) body.icao = editingIcao;
-      fetch(PCR_API_BASE + "/airfields-pending/queue", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-      })
-        .then(r => r.json().then(data => ({ status: r.status, data })))
+      postJson("/airfields-pending/queue", body)
         .then(({ status, data }) => {
           if (status === 401) return showStatus(qEl, false, "Wrong passcode.");
-          if (status !== 200) return showStatus(qEl, false, "Error: " + (data.error || status));
+          if (status !== 200) return showStatus(qEl, false, "Error: " + esc(data.error || status));
           showStatus(qEl, true, "Queued — see Pending Changes above.");
           clearAirfieldForm();
           fetchPending();
         })
-        .catch(() => showStatus(qEl, false, "Couldn't reach the update server."));
+        .catch(err => showStatus(qEl, false, describeApiError(err)));
     });
 
     function queueDelete(icao) {
       const passcode = $("passcode").value;
       if (!passcode) { alert("Enter the passcode first."); return; }
       if (!confirm("Queue deletion of " + icao + "? This won't take effect until you Publish.")) return;
-      fetch(PCR_API_BASE + "/airfields-pending/queue", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ passcode, action: "delete", icao }),
-      })
-        .then(r => r.json().then(data => ({ status: r.status, data })))
+      postJson("/airfields-pending/queue", { passcode, action: "delete", icao })
         .then(({ status, data }) => {
+          if (status === 401) { alert("Wrong passcode."); return; }
           if (status !== 200) { alert("Error: " + (data.error || status)); return; }
           fetchPending();
         })
-        .catch(() => alert("Couldn't reach the update server."));
+        .catch(err => alert(describeApiError(err).replace(/<[^>]+>/g, "")));
     }
 
     function renderPendingList(actions) {
@@ -484,19 +553,26 @@
       if (!icao) return;
       const passcode = $("passcode").value;
       if (!passcode) { alert("Enter the passcode first."); return; }
-      fetch(PCR_API_BASE + "/airfields-pending/remove", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ passcode, icao }),
-      }).then(() => fetchPending()).catch(() => {});
+      postJson("/airfields-pending/remove", { passcode, icao })
+        .then(({ status, data }) => {
+          if (status === 401) { alert("Wrong passcode."); return; }
+          if (status !== 200) { alert("Error: " + (data.error || status)); return; }
+          fetchPending();
+        })
+        .catch(err => alert(describeApiError(err).replace(/<[^>]+>/g, "")));
     });
 
     $("cancelPendingBtn").addEventListener("click", () => {
       const passcode = $("passcode").value;
       if (!passcode) { alert("Enter the passcode first."); return; }
       if (!confirm("Cancel all pending airfield changes? Nothing will be applied.")) return;
-      fetch(PCR_API_BASE + "/airfields-pending/cancel", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ passcode }),
-      }).then(() => fetchPending()).catch(() => {});
+      postJson("/airfields-pending/cancel", { passcode })
+        .then(({ status, data }) => {
+          if (status === 401) { alert("Wrong passcode."); return; }
+          if (status !== 200) { alert("Error: " + (data.error || status)); return; }
+          fetchPending();
+        })
+        .catch(err => alert(describeApiError(err).replace(/<[^>]+>/g, "")));
     });
 
     $("publishBtn").addEventListener("click", () => {
@@ -504,13 +580,10 @@
       const pEl = $("publishStatus");
       if (!passcode) { showStatus(pEl, false, "Enter the passcode first."); return; }
       if (!confirm("Publish all pending airfield changes now? This goes live immediately and updates the Check tab's Synced date — you'll need to announce it on FlightBox afterward.")) return;
-      fetch(PCR_API_BASE + "/airfields-pending/publish", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ passcode }),
-      })
-        .then(r => r.json().then(data => ({ status: r.status, data })))
+      postJson("/airfields-pending/publish", { passcode })
         .then(({ status, data }) => {
           if (status === 401) return showStatus(pEl, false, "Wrong passcode.");
-          if (status !== 200) return showStatus(pEl, false, "Error: " + (data.error || status));
+          if (status !== 200) return showStatus(pEl, false, "Error: " + esc(data.error || status));
           let html = "<div class='result ok'><strong>Published — Live (" + data.lastPublished + ")</strong><br>";
           if (data.added.length) html += "Added: " + data.added.join(", ") + "<br>";
           if (data.edited.length) html += "Edited: " + data.edited.join(", ") + "<br>";
@@ -520,18 +593,88 @@
           fetchPending();
           fetchOverlay();
         })
-        .catch(() => showStatus(pEl, false, "Couldn't reach the update server."));
+        .catch(err => showStatus(pEl, false, describeApiError(err)));
     });
 
     function fetchPending() {
-      fetch(PCR_API_BASE + "/airfields-pending")
-        .then(r => r.json())
-        .then(data => renderPendingList((data && data.actions) || []))
+      apiCall("/airfields-pending", { cache: "no-store" })
+        .then(({ data }) => renderPendingList((data && data.actions) || []))
         .catch(() => {});
     }
 
+    /* ── Server connection check + address setting ── */
+    function probeKind(err) {
+      if (!err) return "ok";
+      if (err.kind === "badresponse") return err.status >= 500 ? "down (HTTP " + err.status + ")" : "intercepted (HTTP " + err.status + ")";
+      return "blocked / unreachable";
+    }
+
+    function checkConnection() {
+      const el = $("connStatus");
+      el.className = "conn";
+      el.textContent = "Checking " + apiHost() + "…";
+      // Read: plain GET. Write: the same JSON POST (+ CORS preflight) a real submit
+      // uses, but with an empty passcode, so the server just answers 401 and changes nothing.
+      const read = apiCall("/health", { cache: "no-store" })
+        .then(x => (x.status === 200 && x.data.ok === true) ? null : { kind: "badresponse", status: x.status })
+        .catch(e => e);
+      const write = postJson("/update", { passcode: "" })
+        .then(x => x.status === 401 ? null : { kind: "badresponse", status: x.status })
+        .catch(e => e);
+      Promise.all([read, write]).then(([r, w]) => {
+        const custom = apiBase() !== PCR_API_DEFAULT ? " (custom address)" : "";
+        if (!r && !w) {
+          el.className = "conn ok";
+          el.innerHTML = "● Connected to <b>" + esc(apiHost()) + "</b>" + custom + " — reading and submitting both work.";
+        } else {
+          el.className = "conn bad";
+          el.innerHTML = "● Problem reaching <b>" + esc(apiHost()) + "</b>" + custom + "<br>" +
+            "Reading: " + probeKind(r) + " · Submitting: " + probeKind(w) +
+            "<br><span style='font-size:11px'>If you're on a company network, the address may be filtered — ask IT to allow it, " +
+            "or switch to an address they approve below. Submits will fail until this shows Connected.</span>";
+        }
+      });
+    }
+
+    function refreshAll() {
+      checkConnection();
+      fetchLog($("resultBulk"));
+      fetchOverlay();
+      fetchPending();
+    }
+
+    $("apiBaseInput").value = apiBase();
+    $("apiRecheckBtn").addEventListener("click", refreshAll);
+
+    $("apiSaveBtn").addEventListener("click", () => {
+      const msg = $("apiMsg");
+      const v = normalizeApiBase($("apiBaseInput").value);
+      if (!v) { showStatus(msg, false, "Enter a full https:// address, e.g. https://example.com/pcr-api"); return; }
+      let persisted = true;
+      if (v === PCR_API_DEFAULT) {
+        apiBaseMem = null;
+        try { localStorage.removeItem(API_KEY); } catch (e) { persisted = false; }
+      } else {
+        apiBaseMem = v;
+        try { localStorage.setItem(API_KEY, v); } catch (e) { persisted = false; }
+      }
+      $("apiBaseInput").value = v;
+      showStatus(msg, true, (persisted ? "Saved." : "Applied for this visit only — this browser won't store settings.") +
+        (v === PCR_API_DEFAULT ? "" : " Your passcode will now be sent to <b>" + esc(apiHost()) + "</b> — only use an address you trust."));
+      refreshAll();
+    });
+
+    $("apiResetBtn").addEventListener("click", () => {
+      apiBaseMem = null;
+      try { localStorage.removeItem(API_KEY); } catch (e) {}
+      $("apiBaseInput").value = PCR_API_DEFAULT;
+      $("apiMsg").innerHTML = "";
+      refreshAll();
+    });
+
     clearAirfieldForm();
     renderAirfieldTable("");
+    checkConnection();
     fetchOverlay();
     fetchPending();
   </script>

@@ -1,5 +1,19 @@
 # PCN PCR Calculator — Changelog
 
+## Ver 2.17 — 2026-10-30
+- Admin tool (`pcr-admin.html`): new **Server** box at the top. It tests the
+  update server on page load — reading and submitting separately (the submit
+  test sends a harmless empty-passcode request that the server just rejects) —
+  so a blocked network is obvious immediately instead of after a failed submit.
+- Admin error messages now say what actually went wrong instead of a blanket
+  "Couldn't reach the update server": host unreachable or blocked by a firewall/
+  proxy/ad-blocker, an unexpected reply from a filter (e.g. HTTP 403 block page),
+  server down (5xx), or wrong passcode.
+- The admin tool's API address can now be changed in that box (saved in the
+  browser only, https addresses or localhost only, not settable via URL) so a
+  new server hostname can be adopted without a code change or redeploy.
+  The Check tab (`app.js`) still uses the fixed address.
+
 ## Ver 2.16 — 2026-09-02
 - New **"Manage Airfields" tab** in the admin tool (`pcr-admin.html`) — full
   Add / Edit / Delete for airfields and their runways, without a code
