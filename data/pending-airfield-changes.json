@@ -1,16 +1,3 @@
 {
-  "actions": {
-    "YWLM": {
-      "type": "delete",
-      "icao": "YWLM",
-      "data": null,
-      "queuedAt": "2026-09-03T09:43:13.808Z"
-    },
-    "NZWN": {
-      "type": "delete",
-      "icao": "NZWN",
-      "data": null,
-      "queuedAt": "2026-09-03T09:43:32.567Z"
-    }
-  }
+  "actions": {}
 }
