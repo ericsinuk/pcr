@@ -1,5 +1,243 @@
 {
-  "edits": {},
+  "edits": {
+    "KAFW": {
+      "icao": "KAFW",
+      "iata": "AFW",
+      "name": "Fort Worth Alliance",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "16L"
+        },
+        {
+          "rwy": "34R"
+        },
+        {
+          "rwy": "16R"
+        },
+        {
+          "rwy": "34L"
+        }
+      ]
+    },
+    "KDFW": {
+      "icao": "KDFW",
+      "iata": "DFW",
+      "name": "Dallas Fort Worth",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "13L"
+        },
+        {
+          "rwy": "31R"
+        },
+        {
+          "rwy": "13R"
+        },
+        {
+          "rwy": "31L"
+        },
+        {
+          "rwy": "17C"
+        },
+        {
+          "rwy": "35C"
+        },
+        {
+          "rwy": "17L"
+        },
+        {
+          "rwy": "35R"
+        },
+        {
+          "rwy": "17R"
+        },
+        {
+          "rwy": "35L"
+        },
+        {
+          "rwy": "18L"
+        },
+        {
+          "rwy": "36R"
+        },
+        {
+          "rwy": "18R"
+        },
+        {
+          "rwy": "36L"
+        }
+      ]
+    },
+    "EGKK": {
+      "icao": "EGKK",
+      "iata": "LGW",
+      "name": "London Gatwick",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "08L"
+        },
+        {
+          "rwy": "26R"
+        },
+        {
+          "rwy": "08R"
+        },
+        {
+          "rwy": "26L"
+        }
+      ]
+    },
+    "GMTT": {
+      "icao": "GMTT",
+      "iata": "TNG",
+      "name": "Tangier",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "10"
+        },
+        {
+          "rwy": "28"
+        }
+      ]
+    },
+    "KTUS": {
+      "icao": "KTUS",
+      "iata": "TUS",
+      "name": "Tucson",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "04"
+        },
+        {
+          "rwy": "22"
+        },
+        {
+          "rwy": "12"
+        },
+        {
+          "rwy": "30"
+        }
+      ]
+    },
+    "LTFM": {
+      "icao": "LTFM",
+      "iata": "IST",
+      "name": "Istanbul",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "16R"
+        },
+        {
+          "rwy": "34L"
+        },
+        {
+          "rwy": "17L"
+        },
+        {
+          "rwy": "35R"
+        },
+        {
+          "rwy": "18"
+        },
+        {
+          "rwy": "36"
+        },
+        {
+          "rwy": "16L"
+        },
+        {
+          "rwy": "34R"
+        },
+        {
+          "rwy": "17R"
+        },
+        {
+          "rwy": "35L"
+        },
+        {
+          "rwy": "09"
+        }
+      ]
+    },
+    "EGAA": {
+      "icao": "EGAA",
+      "iata": "BFS",
+      "name": "Belfast Aldergrove",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "07"
+        },
+        {
+          "rwy": "25"
+        },
+        {
+          "rwy": "17"
+        },
+        {
+          "rwy": "35"
+        }
+      ]
+    },
+    "KCVG": {
+      "icao": "KCVG",
+      "iata": "CVG",
+      "name": "Cincinnati",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "09"
+        },
+        {
+          "rwy": "27"
+        },
+        {
+          "rwy": "18R"
+        },
+        {
+          "rwy": "36L"
+        },
+        {
+          "rwy": "18C"
+        },
+        {
+          "rwy": "36C"
+        },
+        {
+          "rwy": "18L"
+        },
+        {
+          "rwy": "36R"
+        }
+      ]
+    },
+    "EGCC": {
+      "icao": "EGCC",
+      "iata": "MAN",
+      "name": "Manchester",
+      "system": "PCR",
+      "runways": [
+        {
+          "rwy": "05L"
+        },
+        {
+          "rwy": "23R"
+        },
+        {
+          "rwy": "05R"
+        },
+        {
+          "rwy": "23L"
+        }
+      ]
+    }
+  },
   "deleted": [
     "YWLM",
     "NZWN"
