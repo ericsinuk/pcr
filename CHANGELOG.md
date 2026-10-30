@@ -1,5 +1,33 @@
 # PCN PCR Calculator — Changelog
 
+## Ver 2.18 — 2026-10-30
+- **The live data no longer depends on the VPS backend.** Live PCN/PCR data now
+  lives in the repository itself as plain JSON files (`data/*.json`). The admin
+  page saves changes by committing to the repo through GitHub's API, and the
+  Check tab reads the same files from GitHub Pages. This was needed because some
+  company networks block the VPS host (`duckdns.org`) entirely, so the admin
+  could not be used from them; GitHub is reachable.
+- Admin page: the passcode is replaced by a GitHub token (fine-grained, limited
+  to this repository, Contents read/write; kept for the browser tab only). A
+  "GitHub access" box tests the connection and write permission. Each admin
+  action is one commit with a readable message, so the repo history doubles as
+  an audit trail. Simultaneous edits are detected and retried rather than
+  overwritten.
+- All the rules that used to run on the server (duplicate-value skipping, PCN
+  format checks, current/next cycle, staged add/edit/delete with publish, ICAO
+  rename carrying PCN history across, the "Live" date) moved into a shared,
+  tested module (`pcr-core.js`); it was verified to produce identical results to
+  the old server across 26 scenarios. The Check tab uses the same module to work
+  out which version of each runway is live today.
+- A change now appears on the Check tab about a minute after it is saved (GitHub
+  Pages rebuild) instead of instantly.
+- Fixed: after Publish, the summary with the FlightBox / LIDO reminders vanished
+  immediately because it sat inside the pending-changes card, which hides itself
+  once nothing is pending. It is now shown on its own.
+- Service worker no longer intercepts non-GET or cross-origin requests.
+- Existing data was imported from the VPS unchanged. `pcr-api` on the VPS is
+  retired (left running but unused).
+
 ## Ver 2.17 — 2026-10-30
 - Admin tool (`pcr-admin.html`): new **Server** box at the top. It tests the
   update server on page load — reading and submitting separately (the submit

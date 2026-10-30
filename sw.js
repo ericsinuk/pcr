@@ -1,5 +1,5 @@
-const CACHE = "pcr-pcn-v2.17";
-const ASSETS = ["./", "./index.html", "./app.js", "./airfields.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
+const CACHE = "pcr-pcn-v2.18";
+const ASSETS = ["./", "./index.html", "./app.js", "./pcr-core.js", "./airfields.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -15,11 +15,11 @@ self.addEventListener("activate", e => {
 });
 
 self.addEventListener("fetch", e => {
-  // Don't cache API responses — always fetch fresh data
-  if (e.request.url.includes("/pcr-api/")) {
-    e.respondWith(fetch(e.request, { cache: "no-cache" }));
-    return;
-  }
+  // Only handle same-origin GETs. Anything else (cross-origin data fetches, and
+  // the admin page's POST/PUT calls to the GitHub API) goes straight to the
+  // network untouched — a cache can't store those, and routing them through
+  // here only added a failure point.
+  if (e.request.method !== "GET" || new URL(e.request.url).origin !== self.location.origin) return;
 
   e.respondWith(
     // cache:"no-cache" forces revalidation with the server (cheap 304s),

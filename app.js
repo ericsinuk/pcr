@@ -1,4 +1,4 @@
-const APP_VERSION = "2.17";
+const APP_VERSION = "2.18";
 const APP_VERSION_DATE = "2026-10-30";
 // NOTE: bump APP_VERSION on every update; keep sw.js CACHE name in sync ("pcr-pcn-v<ver>").
 
@@ -192,10 +192,12 @@ const CHK_TYPES = [["757-200","B757"], ["767-300ER","B767"], ["777F","B777"]];
 
 let refSel = "MTW";
 
-// Live PCN/PCR runway overrides (uploaded via the separate admin tool).
-// Read-only from here — this page never writes. Fails silently/gracefully
-// if the API is unreachable (e.g. standalone file build, local testing).
-const PCR_API_BASE = "https://dhl-audit.duckdns.org/pcr-api";
+// Live PCN/PCR data. The admin page edits plain JSON files in the repo
+// (data/*.json) through the GitHub API; this page only ever reads them.
+// The absolute address means the same data is used wherever the app is opened
+// from (GitHub Pages, the internal server, or the standalone file build).
+// Fails gracefully to the baked-in data if the files can't be fetched.
+const DATA_BASE = "https://ericsinuk.github.io/pcr/data";
 let OVERRIDES = {};
 
 // EFFECTIVE_AIRFIELDS = the baked-in 455-airfield AIRFIELDS array, with the
@@ -205,42 +207,32 @@ let OVERRIDES = {};
 // fresh overlay data.
 let EFFECTIVE_AIRFIELDS = AIRFIELDS;
 
-function overlayRecordToTuple(rec) {
-  // Admin overlay records are plain objects ({icao,iata,name,system,
-  // runways:[{rwy}]}) — convert to the same positional-tuple shape as the
-  // baked-in AIRFIELDS rows so all existing rendering code (which
-  // destructures [icao,iata,name,system,runways]) works unchanged.
-  return [
-    rec.icao, rec.iata, rec.name, rec.system,
-    rec.runways.map(r => [r.rwy, null]),
-  ];
+function rebuildEffectiveAirfields(airfieldEdits, airfieldDeleted) {
+  EFFECTIVE_AIRFIELDS = PCRCore.buildEffectiveAirfields(AIRFIELDS, airfieldEdits, airfieldDeleted);
 }
 
-function rebuildEffectiveAirfields(airfieldEdits, airfieldDeleted) {
-  const edits = airfieldEdits || {};
-  const deleted = new Set(airfieldDeleted || []);
-  const edited = new Set(Object.keys(edits));
-  const base = AIRFIELDS.filter(a => !deleted.has(a[0]) && !edited.has(a[0]));
-  const overlayRows = Object.values(edits).map(overlayRecordToTuple);
-  EFFECTIVE_AIRFIELDS = base.concat(overlayRows);
+function fetchData(name) {
+  return fetch(DATA_BASE + "/" + name + ".json", { cache: "no-store" })
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status + " for " + name); return r.json(); });
 }
 
 function fetchOverrides() {
   const status = $("syncStatus"), btn = $("getUpdateBtn");
   if (btn) btn.disabled = true;
   if (status) { status.textContent = "Checking for updates…"; status.className = "sync-status"; }
-  return fetch(PCR_API_BASE + "/overrides", { cache: "no-store" })
-    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-    .then(data => {
-      OVERRIDES = (data && data.overrides) ? data.overrides : (data || {});
-      rebuildEffectiveAirfields(data && data.airfieldEdits, data && data.airfieldDeleted);
+  return Promise.all([fetchData("overrides"), fetchData("airfields-overlay"), fetchData("sync-status")])
+    .then(([allOverrides, overlay, sync]) => {
+      // Which version of each runway is live is date-dependent (highest WEF <= today),
+      // so it is worked out here, in the browser, rather than stored.
+      const live = PCRCore.computeLive(allOverrides, PCRCore.todayUtc());
+      OVERRIDES = live.overrides;
+      rebuildEffectiveAirfields(overlay && overlay.edits, overlay && overlay.deleted);
       if (status) {
         // lastPublished = date of the admin's most recent real publish (any WEF),
         // for crew to cross-check against a FlightBox announcement. Falls back
-        // to currentWef only if no publish has ever been tracked (e.g. data
-        // seeded before this field existed).
-        const liveDate = (data && data.lastPublished) ? data.lastPublished
-          : (data && data.currentWef ? data.currentWef : "unknown");
+        // to currentWef only if no publish has ever been tracked.
+        const liveDate = (sync && sync.lastPublished) ? sync.lastPublished
+          : (live.currentWef ? live.currentWef : "unknown");
         status.textContent = "Synced data: Live (" + liveDate + ")";
         status.className = "sync-status ok";
       }

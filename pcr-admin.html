@@ -102,6 +102,7 @@
   .pending-remove{font-size:10px;font-weight:600;padding:3px 7px;border-radius:4px;border:0.5px solid var(--border2);
     background:var(--bg);color:var(--text2);cursor:pointer;font-family:var(--font)}
   .pending-remove:hover{background:var(--red-bg);color:var(--red-txt)}
+  #pageAirfields .card + #publishResult{margin-top:0}
 </style>
 </head>
 <body>
@@ -113,30 +114,18 @@
   <div class="wrap">
 
     <div class="card">
-      <div class="card-head">Server</div>
+      <div class="card-head">GitHub access</div>
       <div class="card-body">
-        <div id="connStatus" class="conn">Checking…</div>
+        <div id="connStatus" class="conn">Not connected — you can view the data, but you need a token to make changes.</div>
         <div class="field">
-          <label for="apiBaseInput">API address</label>
-          <input id="apiBaseInput" autocomplete="off" spellcheck="false">
+          <label for="ghToken">GitHub token</label>
+          <input type="password" id="ghToken" autocomplete="off" spellcheck="false" placeholder="github_pat_… (kept for this tab only)">
         </div>
         <div class="btn-row">
-          <button class="btn" id="apiSaveBtn" type="button">Save &amp; test</button>
-          <button class="btn" id="apiResetBtn" type="button">Reset to default</button>
-          <button class="btn" id="apiRecheckBtn" type="button">Recheck</button>
+          <button class="btn btn-primary" id="ghConnectBtn" type="button">Connect &amp; test</button>
+          <button class="btn" id="ghForgetBtn" type="button">Forget token</button>
         </div>
-        <div id="apiMsg"></div>
-        <div class="hint">Saved in this browser only. Change it only if you've been given a new address for the update server — your passcode is sent to whatever address is shown here.</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-head">Passcode</div>
-      <div class="card-body">
-        <div class="field">
-          <label for="passcode">Update passcode</label>
-          <input type="password" id="passcode" autocomplete="off" placeholder="required to submit">
-        </div>
+        <div class="hint">Changes are saved straight to the <b id="repoName"></b> repository (its <code>data/</code> folder) through GitHub — there is no separate server. Use a fine-grained token limited to that one repository with <b>Contents: Read and write</b> (github.com/settings/personal-access-tokens). It is kept for this browser tab only and is cleared when you close it. A saved change shows on the Check tab about a minute later.</div>
       </div>
     </div>
 
@@ -166,6 +155,8 @@
     </div>
 
     <div id="pageAirfields" style="display:none">
+
+      <div id="publishResult"></div>
 
       <div class="card" id="pendingCard" style="display:none">
         <div class="card-head">Pending Changes</div>
@@ -209,6 +200,7 @@
         <div class="card-head">All Airfields</div>
         <div class="card-body">
           <input class="af-search" id="afSearch" placeholder="Search ICAO / IATA / name…">
+          <div id="afStatus"></div>
           <div class="af-table-wrap"><table class="af-table" id="afTable"></table></div>
         </div>
       </div>
@@ -218,148 +210,190 @@
   </div>
 
   <script src="airfields.js"></script>
+  <script src="pcr-core.js"></script>
+  <script src="pcr-gh.js"></script>
   <script>
-    const PCR_API_DEFAULT = "https://dhl-audit.duckdns.org/pcr-api";
-    const API_KEY = "pcrApiBase";
+    // The live data are plain JSON files in this repository (data/*.json). This page
+    // edits them through GitHub's API; the Check tab reads the very same files.
+    const GH = { owner: "ericsinuk", repo: "pcr", branch: "main" };
+    const DATA_BASE = "https://" + GH.owner + ".github.io/" + GH.repo + "/data";
+    const TOKEN_KEY = "pcrGhToken";
+    const core = PCRCore;
     const $ = id => document.getElementById(id);
-    const byIcao = {};
-    AIRFIELDS.forEach(a => { byIcao[a[0]] = a; });
-
-    let selectedIcao = null;
-
-    /* ── API address (changeable per browser, no redeploy needed) ── */
-    // Deliberately NOT settable via URL/query string: a crafted link must not
-    // be able to point the passcode at someone else's server.
-    let apiBaseMem = null; // used when this browser won't persist localStorage
+    $("repoName").textContent = GH.owner + "/" + GH.repo;
 
     function esc(s) {
       return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     }
-
-    function normalizeApiBase(v) {
-      v = String(v || "").trim().replace(/\/+$/, "");
-      const okHttps = /^https:\/\/[^\s/]+(\/[^\s]*)?$/i.test(v);
-      const okLocal = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[^\s]*)?$/i.test(v);
-      return (okHttps || okLocal) ? v : null;
-    }
-
-    function apiBase() {
-      if (apiBaseMem) return apiBaseMem;
-      try {
-        const saved = normalizeApiBase(localStorage.getItem(API_KEY));
-        if (saved) return saved;
-      } catch (e) {}
-      return PCR_API_DEFAULT;
-    }
-
-    function apiHost() { return apiBase().replace(/^https?:\/\//, "").split("/")[0]; }
-
-    // Resolves {status, data} for any JSON reply. Rejects with err.kind:
-    //   "network"     — the request never completed (blocked, offline, DNS, CORS preflight denied…)
-    //   "badresponse" — something answered but it wasn't our JSON API (proxy block page, 502 with no body…)
-    function apiCall(path, opts) {
-      return fetch(apiBase() + path, opts).then(
-        r => r.text().then(text => {
-          let data = null;
-          try { data = JSON.parse(text); } catch (e) {}
-          if (data === null || typeof data !== "object") {
-            const err = new Error("bad response"); err.kind = "badresponse"; err.status = r.status; throw err;
-          }
-          return { status: r.status, data };
-        }),
-        () => { const err = new Error("network"); err.kind = "network"; throw err; }
-      );
-    }
-
-    function postJson(path, body) {
-      return apiCall(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    }
-
-    function describeApiError(err) {
-      const host = esc(apiHost());
-      if (err && err.kind === "badresponse") {
-        if (err.status >= 500) {
-          return "The update server answered with HTTP " + err.status + " — the service may be down or restarting. Try again shortly.";
-        }
-        return "Got an unexpected reply (HTTP " + err.status + ") that didn't come from the update server — a firewall or proxy on this network may be intercepting requests to <b>" + host + "</b>.";
-      }
-      return "Can't reach <b>" + host + "</b> from this browser. The server itself may be fine — this usually means a firewall, proxy or ad-blocker is blocking it, or you're offline. See the Server box at the top of the page to test reads and writes separately.";
-    }
-
-    function fetchLog(resultEl) {
-      apiCall("/log", { cache: "no-store" })
-        .then(({ data }) => { if (data && data.entries) renderLog(data, resultEl); })
-        .catch(() => {});
-    }
-
-    function renderEntry(e) {
-      let inner = "<strong>" + new Date(e.time).toLocaleString() + "</strong><br>";
-      if (e.currentCycle.length) inner += "Current Cycle: " + e.currentCycle.slice().sort().join(", ") + "<br>";
-      if (e.nextCycle.length) inner += "Next Cycle: " + e.nextCycle.slice().sort().join(", ");
-      if (!e.currentCycle.length && !e.nextCycle.length) inner += "<em>No changes applied.</em>";
-      let html = "<div class='entry-card'><div class='result ok'>" + inner + "</div>";
-      if (e.skipped.length) {
-        html += "<div class='result bad' style='margin-top:6px'>Skipped " + e.skipped.length + " (no change from current): " +
-          e.skipped.slice().sort().join(", ") + "</div>";
-      }
-      if (e.rejected.length) {
-        html += "<div class='result bad' style='margin-top:6px'>Rejected " + e.rejected.length + ": " +
-          e.rejected.map(r => r.icao + " " + r.rwy + " (" + r.reason + ")").join("; ") + "</div>";
-      }
-      html += "</div>";
-      return html;
-    }
-
-    function renderLog(log, resultEl) {
-      if (!log || !log.entries.length) { resultEl.innerHTML = ""; return; }
-      let html = "<div class='week-header'>WEF " + log.wef + " — " + log.entries.length +
-        " submission" + (log.entries.length > 1 ? "s" : "") + " this cycle</div><div class='entry-list'>";
-      for (let i = log.entries.length - 1; i >= 0; i--) html += renderEntry(log.entries[i]);
-      html += "</div>";
-      resultEl.innerHTML = html;
-    }
-
     function showStatus(el, ok, text) {
       el.innerHTML = "<div class='result " + (ok ? "ok" : "bad") + "'>" + text + "</div>";
     }
+    function ctx() { return { airfields: AIRFIELDS, today: core.todayUtc(), now: new Date().toISOString() }; }
 
-    function submitUpdates(updates, wef, statusEl, logEl, btn) {
-      const passcode = $("passcode").value;
-      if (!passcode) { showStatus(statusEl, false, "Enter the passcode first."); return; }
-      if (!updates.length) { showStatus(statusEl, false, "Nothing to submit."); return; }
-      if (!wef) { showStatus(statusEl, false, "Enter the WEF date (e.g. 2026-08-13)."); return; }
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(wef)) { showStatus(statusEl, false, "Invalid WEF date format. Use YYYY-MM-DD (e.g. 2026-08-13)"); return; }
-      btn.disabled = true;
-      postJson("/update", { passcode, updates, wef })
-        .then(({ status, data }) => {
-          if (status === 401) return showStatus(statusEl, false, "Wrong passcode.");
-          if (status !== 200) return showStatus(statusEl, false, "Error: " + esc(data.error || status));
-          statusEl.innerHTML = "";
-          fetchLog(logEl);
-        })
-        .catch(err => showStatus(statusEl, false, describeApiError(err)))
-        .finally(() => { btn.disabled = false; });
+    /* ── Token (this tab only) ── */
+    let tokenMem = "";
+    function getToken() {
+      if (tokenMem) return tokenMem;
+      try { return sessionStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; }
+    }
+    function setToken(t) {
+      tokenMem = t || "";
+      try { if (t) sessionStorage.setItem(TOKEN_KEY, t); else sessionStorage.removeItem(TOKEN_KEY); } catch (e) {}
+      client = null;
+    }
+    let client = null;
+    function ghClient() {
+      const t = getToken();
+      if (!t) return null;
+      if (!client) client = PCRGh.create({ owner: GH.owner, repo: GH.repo, branch: GH.branch, token: t, core });
+      return client;
     }
 
-    fetchLog($("resultBulk"));
+    function describeGhError(e) {
+      const msg = e && e.message && e.message !== e.kind ? " (" + esc(e.message) + ")" : "";
+      const where = "<b>" + esc(GH.owner + "/" + GH.repo) + "</b>";
+      switch (e && e.kind) {
+        case "network":
+          return "Can't reach <b>api.github.com</b> from this browser. This usually means a firewall, proxy or ad-blocker is blocking it, or you're offline.";
+        case "auth":
+          return "GitHub rejected the token — it has expired, been revoked, or was mistyped. Create a new one and enter it in the GitHub access box.";
+        case "forbidden":
+          return "GitHub refused the request" + msg + ". The token probably lacks permission — it needs <b>Contents: Read and write</b> on " + where + ".";
+        case "notfound":
+          return "GitHub can't find " + where + " for this token" + msg + ". Check the token has access to that repository with <b>Contents: Read and write</b>.";
+        case "ratelimit":
+          return "GitHub's rate limit was reached — wait a few minutes and try again.";
+        case "conflict":
+          return "Someone else changed the data at the same moment and the save couldn't be merged automatically. Nothing was lost — please try again.";
+        case "corrupt":
+          return "A data file in the repository isn't valid JSON" + msg + ". Nothing was changed — fix that file on GitHub first.";
+        default:
+          return "GitHub returned an unexpected error" + msg + (e && e.status ? " (HTTP " + e.status + ")" : "") + ".";
+      }
+    }
 
-    $("submitBulk").addEventListener("click", () => {
-      const statusEl = $("submitStatus");
-      const logEl = $("resultBulk");
+    /* ── Data: latest copy of the files (from GitHub if we have a token, else the public site) ── */
+    let STATE = core.emptyState();
+
+    function fetchPublicState() {
+      const keys = Object.keys(core.FILES);
+      return Promise.all(keys.map(k =>
+        fetch(DATA_BASE + "/" + core.FILES[k].replace(/^data\//, "") + "?t=" + Date.now(), { cache: "no-store" })
+          .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      )).then(vals => {
+        const raw = {};
+        keys.forEach((k, i) => { raw[k] = vals[i]; });
+        return core.normalizeState(raw);
+      });
+    }
+
+    async function refreshState() {
+      const c = ghClient();
+      try {
+        STATE = c ? (await c.readState()).state : await fetchPublicState();
+        renderAll();
+        return true;
+      } catch (e) {
+        if (c && (e.kind === "auth" || e.kind === "network")) throw e;  // connect() reports these
+        try { STATE = await fetchPublicState(); renderAll(); return true; }
+        catch (e2) {
+          $("connStatus").className = "conn bad";
+          $("connStatus").innerHTML = "● Couldn't load the data files from <b>" + esc(DATA_BASE.replace("https://", "")) + "</b> — a firewall may be blocking it.";
+          return false;
+        }
+      }
+    }
+
+    // Run `apply(state)` against the latest data and save the result as one commit.
+    // Returns the apply result, or null after showing the problem in statusEl.
+    async function act(statusEl, apply, message) {
+      const c = ghClient();
+      if (!c) { showStatus(statusEl, false, "Enter your GitHub token first (GitHub access box at the top of the page)."); return null; }
+      try {
+        const out = await c.mutate(apply, message);
+        STATE = out.state;
+        renderAll();
+        if (out.result && out.result.error) { showStatus(statusEl, false, esc(out.result.error)); return null; }
+        return out.result;
+      } catch (e) {
+        showStatus(statusEl, false, describeGhError(e));
+        return null;
+      }
+    }
+
+    /* ── Connection box ── */
+    function setConn(cls, html) { const el = $("connStatus"); el.className = "conn" + (cls ? " " + cls : ""); el.innerHTML = html; }
+
+    async function connect() {
+      const typed = $("ghToken").value.trim();
+      if (typed) setToken(typed);
+      if (!getToken()) { setConn("bad", "● Enter a token first."); return; }
+      setConn("", "Checking GitHub…");
+      try {
+        const acc = await ghClient().testAccess();
+        const who = acc.login ? "as <b>" + esc(acc.login) + "</b> " : "";
+        if (acc.write) setConn("ok", "● Connected " + who + "— can read and save to <b>" + esc(GH.owner + "/" + GH.repo) + "</b>.");
+        else setConn("bad", "● The token works " + who + "but can't save to <b>" + esc(GH.owner + "/" + GH.repo) + "</b>. It needs <b>Contents: Read and write</b> on that repository.");
+        await refreshState();
+      } catch (e) {
+        setConn("bad", "● " + describeGhError(e));
+      }
+    }
+
+    $("ghConnectBtn").addEventListener("click", connect);
+    $("ghForgetBtn").addEventListener("click", async () => {
+      setToken(""); $("ghToken").value = "";
+      setConn("", "Not connected — you can view the data, but you need a token to make changes.");
+      await refreshState();
+    });
+
+    /* ── Batch Update ── */
+    function renderEntry(e) {
+      const list = a => esc(a.slice().sort().join(", "));
+      let inner = "<strong>" + esc(new Date(e.time).toLocaleString()) + "</strong><br>";
+      if (e.currentCycle.length) inner += "Current Cycle: " + list(e.currentCycle) + "<br>";
+      if (e.nextCycle.length) inner += "Next Cycle: " + list(e.nextCycle);
+      if (!e.currentCycle.length && !e.nextCycle.length) inner += "<em>No changes applied.</em>";
+      let html = "<div class='entry-card'><div class='result ok'>" + inner + "</div>";
+      if (e.skipped.length) {
+        html += "<div class='result bad' style='margin-top:6px'>Skipped " + e.skipped.length + " (no change from current): " + list(e.skipped) + "</div>";
+      }
+      if (e.rejected.length) {
+        html += "<div class='result bad' style='margin-top:6px'>Rejected " + e.rejected.length + ": " +
+          esc(e.rejected.map(r => r.icao + " " + r.rwy + " (" + r.reason + ")").join("; ")) + "</div>";
+      }
+      return html + "</div>";
+    }
+
+    function renderLog() {
+      const log = STATE.log, el = $("resultBulk");
+      if (!log || !log.entries.length) { el.innerHTML = ""; return; }
+      let html = "<div class='week-header'>WEF " + esc(log.wef) + " — " + log.entries.length +
+        " submission" + (log.entries.length > 1 ? "s" : "") + " this cycle</div><div class='entry-list'>";
+      for (let i = log.entries.length - 1; i >= 0; i--) html += renderEntry(log.entries[i]);
+      el.innerHTML = html + "</div>";
+    }
+
+    $("submitBulk").addEventListener("click", async () => {
+      const statusEl = $("submitStatus"), btn = $("submitBulk");
       const wef = $("wefDate").value.trim();
       const lines = $("bulkPaste").value.split("\n").map(l => l.trim()).filter(Boolean);
-      const updates = [];
-      const badLines = [];
+      const updates = [], badLines = [];
       lines.forEach(line => {
         const parts = line.split(",").map(p => p.trim());
         if (parts.length !== 3) { badLines.push(line); return; }
         updates.push({ icao: parts[0], rwy: parts[1], pcn: parts[2] });
       });
-      if (badLines.length) {
-        showStatus(statusEl, false, badLines.length + " line(s) not in ICAO,RWY,PCN format: " + badLines.join(" | "));
-        return;
-      }
-      submitUpdates(updates, wef, statusEl, logEl, $("submitBulk"));
+      if (badLines.length) { showStatus(statusEl, false, esc(badLines.length + " line(s) not in ICAO,RWY,PCN format: " + badLines.join(" | "))); return; }
+      if (!updates.length) { showStatus(statusEl, false, "Nothing to submit."); return; }
+      if (!wef) { showStatus(statusEl, false, "Enter the WEF date (e.g. 2026-08-13)."); return; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(wef)) { showStatus(statusEl, false, "Invalid WEF date format. Use YYYY-MM-DD (e.g. 2026-08-13)"); return; }
+      btn.disabled = true;
+      showStatus(statusEl, true, "Saving to GitHub…");
+      const res = await act(statusEl, s => core.applyBatch(s, { updates, wef }, ctx()),
+        r => "Admin: batch update WEF " + wef + " — " + (r.currentCycle.length + r.nextCycle.length) + " airfield(s) changed");
+      btn.disabled = false;
+      if (res) showStatus(statusEl, true, "Saved. The Check tab will show it within about a minute.");
     });
 
     /* ── Tab switcher ── */
@@ -377,35 +411,11 @@
     });
 
     /* ── Manage Airfields ── */
-    // EFFECTIVE_AIRFIELDS_ADMIN = baked-in AIRFIELDS with the live admin
-    // overlay applied (same merge logic as the main app's Check tab), so
-    // this table reflects reality even before a redeploy.
-    let EFFECTIVE_AIRFIELDS_ADMIN = AIRFIELDS;
+    let EFFECTIVE_AIRFIELDS_ADMIN = AIRFIELDS;  // baked-in data with the live overlay applied
     let editingIcao = null; // null = adding new; otherwise the ORIGINAL icao being edited
 
-    function overlayRecordToTuple(rec) {
-      return [rec.icao, rec.iata, rec.name, rec.system, rec.runways.map(r => [r.rwy, null])];
-    }
-
-    function rebuildEffectiveAirfieldsAdmin(airfieldEdits, airfieldDeleted) {
-      const edits = airfieldEdits || {};
-      const deleted = new Set(airfieldDeleted || []);
-      const edited = new Set(Object.keys(edits));
-      const base = AIRFIELDS.filter(a => !deleted.has(a[0]) && !edited.has(a[0]));
-      EFFECTIVE_AIRFIELDS_ADMIN = base.concat(Object.values(edits).map(overlayRecordToTuple));
-    }
-
-    function fetchOverlay() {
-      return apiCall("/overrides", { cache: "no-store" })
-        .then(({ data }) => {
-          rebuildEffectiveAirfieldsAdmin(data && data.airfieldEdits, data && data.airfieldDeleted);
-          renderAirfieldTable($("afSearch").value);
-        })
-        .catch(() => {});
-    }
-
-    function renderAirfieldTable(filterQ) {
-      const q = (filterQ || "").trim().toUpperCase();
+    function renderAirfieldTable() {
+      const q = ($("afSearch").value || "").trim().toUpperCase();
       const rows = EFFECTIVE_AIRFIELDS_ADMIN.filter(a => {
         if (!q) return true;
         return a[0].includes(q) || (a[1] || "").includes(q) || a[2].toUpperCase().includes(q);
@@ -414,56 +424,47 @@
       let html = "<thead><tr><th>ICAO</th><th>IATA</th><th>Name</th><th>Sys</th><th>RWYs</th><th></th></tr></thead><tbody>";
       rows.forEach(a => {
         const [icao, iata, name, system, runways] = a;
-        html += "<tr><td><b>" + icao + "</b></td><td>" + (iata || "—") + "</td><td>" + name +
-          "</td><td>" + (system || "—") + "</td><td>" + runways.length + "</td><td>" +
+        html += "<tr><td><b>" + esc(icao) + "</b></td><td>" + esc(iata || "—") + "</td><td>" + esc(name) +
+          "</td><td>" + esc(system || "—") + "</td><td>" + runways.length + "</td><td>" +
           "<div class='btn-row'>" +
-          "<button class='mini-btn' data-edit='" + icao + "'>Edit</button>" +
-          "<button class='mini-btn danger' data-del='" + icao + "'>Delete</button>" +
+          "<button class='mini-btn' data-edit='" + esc(icao) + "'>Edit</button>" +
+          "<button class='mini-btn danger' data-del='" + esc(icao) + "'>Delete</button>" +
           "</div></td></tr>";
       });
-      html += "</tbody>";
-      $("afTable").innerHTML = html;
+      $("afTable").innerHTML = html + "</tbody>";
     }
 
-    $("afSearch").addEventListener("input", () => renderAirfieldTable($("afSearch").value));
+    $("afSearch").addEventListener("input", renderAirfieldTable);
 
     $("afTable").addEventListener("click", e => {
-      const editIcao = e.target.dataset.edit;
-      const delIcao = e.target.dataset.del;
-      if (editIcao) startEdit(editIcao);
-      if (delIcao) queueDelete(delIcao);
+      if (e.target.dataset.edit) startEdit(e.target.dataset.edit);
+      if (e.target.dataset.del) queueDelete(e.target.dataset.del);
     });
 
     function addRunwayRow(prefill) {
       const row = document.createElement("div");
       row.className = "rwy-row";
       row.innerHTML =
-        "<input class='rwy-designator' placeholder='e.g. 09L' value='" + ((prefill && prefill.rwy) || "") + "'>" +
+        "<input class='rwy-designator' placeholder='e.g. 09L' value='" + esc((prefill && prefill.rwy) || "") + "'>" +
         "<button class='rwy-remove' type='button'>&times;</button>";
       row.querySelector(".rwy-remove").addEventListener("click", () => row.remove());
       $("rwyRows").appendChild(row);
     }
-
     $("addRwyRow").addEventListener("click", () => addRunwayRow());
 
     function collectRunwaysFromForm() {
-      return [...$("rwyRows").querySelectorAll(".rwy-row")].map(row => ({
-        rwy: row.querySelector(".rwy-designator").value.trim(),
-      }));
+      return [...$("rwyRows").querySelectorAll(".rwy-row")].map(row => ({ rwy: row.querySelector(".rwy-designator").value.trim() }));
     }
 
     function clearAirfieldForm() {
       editingIcao = null;
       $("afFormHead").textContent = "Add Airfield";
-      $("afIcao").value = "";
-      $("afIata").value = "";
-      $("afName").value = "";
+      $("afIcao").value = ""; $("afIata").value = ""; $("afName").value = "";
       $("afSystem").value = "PCR";
       $("rwyRows").innerHTML = "";
       addRunwayRow();
       $("queueStatus").innerHTML = "";
     }
-
     $("clearFormBtn").addEventListener("click", clearAirfieldForm);
 
     function startEdit(icao) {
@@ -482,52 +483,29 @@
       window.scrollTo({ top: $("afFormHead").getBoundingClientRect().top + window.scrollY - 12, behavior: "smooth" });
     }
 
-    $("queueBtn").addEventListener("click", () => {
-      const passcode = $("passcode").value;
+    $("queueBtn").addEventListener("click", async () => {
       const qEl = $("queueStatus");
-      if (!passcode) { showStatus(qEl, false, "Enter the passcode first."); return; }
-      const body = {
-        passcode,
+      const input = {
         action: editingIcao ? "edit" : "add",
         data: {
-          icao: $("afIcao").value.trim(),
-          iata: $("afIata").value.trim(),
-          name: $("afName").value.trim(),
-          system: $("afSystem").value,
-          runways: collectRunwaysFromForm(),
+          icao: $("afIcao").value.trim(), iata: $("afIata").value.trim(), name: $("afName").value.trim(),
+          system: $("afSystem").value, runways: collectRunwaysFromForm(),
         },
       };
-      if (editingIcao) body.icao = editingIcao;
-      postJson("/airfields-pending/queue", body)
-        .then(({ status, data }) => {
-          if (status === 401) return showStatus(qEl, false, "Wrong passcode.");
-          if (status !== 200) return showStatus(qEl, false, "Error: " + esc(data.error || status));
-          showStatus(qEl, true, "Queued — see Pending Changes above.");
-          clearAirfieldForm();
-          fetchPending();
-        })
-        .catch(err => showStatus(qEl, false, describeApiError(err)));
+      if (editingIcao) input.icao = editingIcao;
+      const res = await act(qEl, s => core.queueAction(s, input, ctx()),
+        "Admin: queue " + input.action + " " + (input.data.icao || input.icao || "").toUpperCase());
+      if (res) { clearAirfieldForm(); showStatus(qEl, true, "Queued — see Pending Changes above."); }
     });
 
-    function queueDelete(icao) {
-      const passcode = $("passcode").value;
-      if (!passcode) { alert("Enter the passcode first."); return; }
+    async function queueDelete(icao) {
       if (!confirm("Queue deletion of " + icao + "? This won't take effect until you Publish.")) return;
-      postJson("/airfields-pending/queue", { passcode, action: "delete", icao })
-        .then(({ status, data }) => {
-          if (status === 401) { alert("Wrong passcode."); return; }
-          if (status !== 200) { alert("Error: " + (data.error || status)); return; }
-          fetchPending();
-        })
-        .catch(err => alert(describeApiError(err).replace(/<[^>]+>/g, "")));
+      await act($("afStatus"), s => core.queueAction(s, { action: "delete", icao }, ctx()), "Admin: queue delete " + icao);
     }
 
-    function renderPendingList(actions) {
-      if (!actions.length) {
-        $("pendingCard").style.display = "none";
-        return;
-      }
-      $("pendingCard").style.display = "";
+    function renderPendingList() {
+      const actions = core.pendingView(STATE);
+      $("pendingCard").style.display = actions.length ? "" : "none";
       let html = "";
       actions.forEach(a => {
         let detail = "";
@@ -541,142 +519,52 @@
             (a.type === "delete" ? " will be orphaned" : " on this ICAO") + "</div>";
         }
         html += "<div class='pending-item'><div class='prow'>" +
-          "<div><span class='ptype " + a.type + "'>" + a.type + "</span> &nbsp;<b>" + a.icao + "</b> &nbsp;" + detail + "</div>" +
-          "<button class='pending-remove' data-remove='" + a.icao + "'>Remove</button>" +
+          "<div><span class='ptype " + a.type + "'>" + esc(a.type) + "</span> &nbsp;<b>" + esc(a.icao) + "</b> &nbsp;" + esc(detail) + "</div>" +
+          "<button class='pending-remove' data-remove='" + esc(a.icao) + "'>Remove</button>" +
           "</div>" + warn + "</div>";
       });
       $("pendingList").innerHTML = html;
     }
 
-    $("pendingList").addEventListener("click", e => {
+    $("pendingList").addEventListener("click", async e => {
       const icao = e.target.dataset.remove;
       if (!icao) return;
-      const passcode = $("passcode").value;
-      if (!passcode) { alert("Enter the passcode first."); return; }
-      postJson("/airfields-pending/remove", { passcode, icao })
-        .then(({ status, data }) => {
-          if (status === 401) { alert("Wrong passcode."); return; }
-          if (status !== 200) { alert("Error: " + (data.error || status)); return; }
-          fetchPending();
-        })
-        .catch(err => alert(describeApiError(err).replace(/<[^>]+>/g, "")));
+      await act($("publishStatus"), s => core.removePending(s, icao), "Admin: remove pending " + icao);
     });
 
-    $("cancelPendingBtn").addEventListener("click", () => {
-      const passcode = $("passcode").value;
-      if (!passcode) { alert("Enter the passcode first."); return; }
+    $("cancelPendingBtn").addEventListener("click", async () => {
       if (!confirm("Cancel all pending airfield changes? Nothing will be applied.")) return;
-      postJson("/airfields-pending/cancel", { passcode })
-        .then(({ status, data }) => {
-          if (status === 401) { alert("Wrong passcode."); return; }
-          if (status !== 200) { alert("Error: " + (data.error || status)); return; }
-          fetchPending();
-        })
-        .catch(err => alert(describeApiError(err).replace(/<[^>]+>/g, "")));
+      await act($("publishStatus"), s => core.cancelPending(s), "Admin: cancel pending airfield changes");
     });
 
-    $("publishBtn").addEventListener("click", () => {
-      const passcode = $("passcode").value;
+    $("publishBtn").addEventListener("click", async () => {
       const pEl = $("publishStatus");
-      if (!passcode) { showStatus(pEl, false, "Enter the passcode first."); return; }
       if (!confirm("Publish all pending airfield changes now? This goes live immediately and updates the Check tab's Synced date — you'll need to announce it on FlightBox afterward.")) return;
-      postJson("/airfields-pending/publish", { passcode })
-        .then(({ status, data }) => {
-          if (status === 401) return showStatus(pEl, false, "Wrong passcode.");
-          if (status !== 200) return showStatus(pEl, false, "Error: " + esc(data.error || status));
-          let html = "<div class='result ok'><strong>Published — Live (" + data.lastPublished + ")</strong><br>";
-          if (data.added.length) html += "Added: " + data.added.join(", ") + "<br>";
-          if (data.edited.length) html += "Edited: " + data.edited.join(", ") + "<br>";
-          if (data.deleted.length) html += "Deleted: " + data.deleted.join(", ") + "<br>";
-          html += "</div><div class='result bad' style='margin-top:6px'>" + data.reminder + "</div>";
-          pEl.innerHTML = html;
-          fetchPending();
-          fetchOverlay();
-        })
-        .catch(err => showStatus(pEl, false, describeApiError(err)));
+      const res = await act(pEl, s => core.publishPending(s, ctx()),
+        r => "Admin: publish airfield changes — +" + r.added.length + " ~" + r.edited.length + " -" + r.deleted.length);
+      if (!res) return;
+      pEl.innerHTML = "";
+      // shown outside the pending card, which hides itself now that nothing is pending
+      let html = "<div class='result ok'><strong>Published — Live (" + esc(res.lastPublished) + ")</strong><br>";
+      if (res.added.length) html += "Added: " + esc(res.added.join(", ")) + "<br>";
+      if (res.edited.length) html += "Edited: " + esc(res.edited.join(", ")) + "<br>";
+      if (res.deleted.length) html += "Deleted: " + esc(res.deleted.join(", ")) + "<br>";
+      html += "</div><div class='result bad' style='margin-top:6px'>" + esc(res.reminder) + "</div>";
+      $("publishResult").innerHTML = html;
+      window.scrollTo({ top: 0, behavior: "smooth" });
     });
 
-    function fetchPending() {
-      apiCall("/airfields-pending", { cache: "no-store" })
-        .then(({ data }) => renderPendingList((data && data.actions) || []))
-        .catch(() => {});
+    function renderAll() {
+      EFFECTIVE_AIRFIELDS_ADMIN = core.buildEffectiveAirfields(AIRFIELDS, STATE.overlay.edits, STATE.overlay.deleted);
+      renderLog();
+      renderPendingList();
+      renderAirfieldTable();
     }
 
-    /* ── Server connection check + address setting ── */
-    function probeKind(err) {
-      if (!err) return "ok";
-      if (err.kind === "badresponse") return err.status >= 500 ? "down (HTTP " + err.status + ")" : "intercepted (HTTP " + err.status + ")";
-      return "blocked / unreachable";
-    }
-
-    function checkConnection() {
-      const el = $("connStatus");
-      el.className = "conn";
-      el.textContent = "Checking " + apiHost() + "…";
-      // Read: plain GET. Write: the same JSON POST (+ CORS preflight) a real submit
-      // uses, but with an empty passcode, so the server just answers 401 and changes nothing.
-      const read = apiCall("/health", { cache: "no-store" })
-        .then(x => (x.status === 200 && x.data.ok === true) ? null : { kind: "badresponse", status: x.status })
-        .catch(e => e);
-      const write = postJson("/update", { passcode: "" })
-        .then(x => x.status === 401 ? null : { kind: "badresponse", status: x.status })
-        .catch(e => e);
-      Promise.all([read, write]).then(([r, w]) => {
-        const custom = apiBase() !== PCR_API_DEFAULT ? " (custom address)" : "";
-        if (!r && !w) {
-          el.className = "conn ok";
-          el.innerHTML = "● Connected to <b>" + esc(apiHost()) + "</b>" + custom + " — reading and submitting both work.";
-        } else {
-          el.className = "conn bad";
-          el.innerHTML = "● Problem reaching <b>" + esc(apiHost()) + "</b>" + custom + "<br>" +
-            "Reading: " + probeKind(r) + " · Submitting: " + probeKind(w) +
-            "<br><span style='font-size:11px'>If you're on a company network, the address may be filtered — ask IT to allow it, " +
-            "or switch to an address they approve below. Submits will fail until this shows Connected.</span>";
-        }
-      });
-    }
-
-    function refreshAll() {
-      checkConnection();
-      fetchLog($("resultBulk"));
-      fetchOverlay();
-      fetchPending();
-    }
-
-    $("apiBaseInput").value = apiBase();
-    $("apiRecheckBtn").addEventListener("click", refreshAll);
-
-    $("apiSaveBtn").addEventListener("click", () => {
-      const msg = $("apiMsg");
-      const v = normalizeApiBase($("apiBaseInput").value);
-      if (!v) { showStatus(msg, false, "Enter a full https:// address, e.g. https://example.com/pcr-api"); return; }
-      let persisted = true;
-      if (v === PCR_API_DEFAULT) {
-        apiBaseMem = null;
-        try { localStorage.removeItem(API_KEY); } catch (e) { persisted = false; }
-      } else {
-        apiBaseMem = v;
-        try { localStorage.setItem(API_KEY, v); } catch (e) { persisted = false; }
-      }
-      $("apiBaseInput").value = v;
-      showStatus(msg, true, (persisted ? "Saved." : "Applied for this visit only — this browser won't store settings.") +
-        (v === PCR_API_DEFAULT ? "" : " Your passcode will now be sent to <b>" + esc(apiHost()) + "</b> — only use an address you trust."));
-      refreshAll();
-    });
-
-    $("apiResetBtn").addEventListener("click", () => {
-      apiBaseMem = null;
-      try { localStorage.removeItem(API_KEY); } catch (e) {}
-      $("apiBaseInput").value = PCR_API_DEFAULT;
-      $("apiMsg").innerHTML = "";
-      refreshAll();
-    });
-
+    /* ── start ── */
     clearAirfieldForm();
-    renderAirfieldTable("");
-    checkConnection();
-    fetchOverlay();
-    fetchPending();
+    renderAll();
+    if (getToken()) connect(); else refreshState();
   </script>
 </body>
 </html>

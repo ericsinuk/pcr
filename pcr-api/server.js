@@ -1,3 +1,7 @@
+// RETIRED as of Ver 2.18. The live data now lives in data/*.json in the repo and
+// is edited through the GitHub API (see pcr-core.js / pcr-gh.js / pcr-admin.html);
+// nothing in the app calls this server any more. Kept only as a reference for the
+// original rules (pcr-core.js is a tested port of them) and as a historical backup.
 // pcr-api — tiny zero-dependency HTTP service for live PCN/PCR runway overrides
 // and the admin-managed airfield database overlay.
 // Read side is open (matches the app's no-login design); every write path
